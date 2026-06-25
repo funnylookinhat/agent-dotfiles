@@ -1,4 +1,21 @@
 {
+  "mcpServers_COMMENT":
+  [
+    "These are added so that import.sh can automatically add and re-enable."
+  ],
+  "mcpServers":
+  {
+    "atlassian":
+    {
+      "type": "http",
+      "url": "https://mcp.atlassian.com/v1/mcp"
+    },
+    "honeycomb":
+    {
+      "type": "http",
+      "url": "https://mcp.honeycomb.io/mcp"
+    }
+  },
   "permissions":
   {
     "allow":
@@ -12,6 +29,7 @@
       "Edit(//private/tmp/**)",
       "Write(//tmp/**)",
       "Write(//private/tmp/**)",
+      "Write(~/.claude/gold-star-score.md)",
       "Bash(cd:*)",
       "Bash(cut:*)",
       "Bash(diff:*)",

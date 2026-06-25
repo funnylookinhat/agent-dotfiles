@@ -15,3 +15,23 @@ fi
 echo "Imported claude config from $SOURCE"
 
 npm --prefix "$REPO_DIR" run format-fix
+
+SETTINGS="$DEST/settings.json"
+
+if [[ -f "$SETTINGS" ]]; then
+  mcp_names=$(jq -r '.mcpServers // {} | keys[]' "$SETTINGS")
+  if [[ -n "$mcp_names" ]]; then
+    echo "Installing MCP servers..."
+    existing_mcps=$(claude mcp list 2>/dev/null || true)
+    while IFS= read -r name; do
+      if echo "$existing_mcps" | grep -q "^${name}:"; then
+        echo "  $name already configured, skipping"
+      else
+        transport=$(jq -r ".mcpServers[\"$name\"].type" "$SETTINGS")
+        url=$(jq -r ".mcpServers[\"$name\"].url" "$SETTINGS")
+        echo "  claude mcp add --scope user --transport $transport $name $url"
+        claude mcp add --scope user --transport "$transport" "$name" "$url"
+      fi
+    done <<< "$mcp_names"
+  fi
+fi

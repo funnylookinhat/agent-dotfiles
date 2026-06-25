@@ -1,8 +1,117 @@
 {
-  "hooks": {
-    "Stop": [
+  "permissions":
+  {
+    "allow":
+    [
+      "WebFetch",
+      "WebSearch",
+      "Read(~/.claude/skills/**)",
+      "Read(//tmp/**)",
+      "Read(//private/tmp/**)",
+      "Edit(//tmp/**)",
+      "Edit(//private/tmp/**)",
+      "Write(//tmp/**)",
+      "Write(//private/tmp/**)",
+      "Bash(cd:*)",
+      "Bash(cut:*)",
+      "Bash(diff:*)",
+      "Bash(echo:*)",
+      "Bash(file:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(jq:*)",
+      "Bash(launchctl list:*)",
+      "Bash(launchctl print:*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(mkdir -p:*)",
+      "Bash(pandoc:*)",
+      "Bash(plutil -lint:*)",
+      "Bash(pwd:*)",
+      "Bash(rg:*)",
+      "Bash(sort:*)",
+      "Bash(tr:*)",
+      "Bash(tree:*)",
+      "Bash(type:*)",
+      "Bash(uniq:*)",
+      "Bash(which:*)",
+      "Bash(wc:*)",
+      "Bash(gh api:*)",
+      "Bash(gh cache list:*)",
+      "Bash(gh gist list:*)",
+      "Bash(gh gist view:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue status:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh label list:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh project field-list:*)",
+      "Bash(gh project item-list:*)",
+      "Bash(gh project list:*)",
+      "Bash(gh project view:*)",
+      "Bash(gh release list:*)",
+      "Bash(gh release view:*)",
+      "Bash(gh repo list:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh ruleset check:*)",
+      "Bash(gh ruleset list:*)",
+      "Bash(gh ruleset view:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh search code:*)",
+      "Bash(gh search commits:*)",
+      "Bash(gh search issues:*)",
+      "Bash(gh search prs:*)",
+      "Bash(gh search repos:*)",
+      "Bash(gh status:*)",
+      "Bash(gh variable get:*)",
+      "Bash(gh variable list:*)",
+      "Bash(gh workflow list:*)",
+      "Bash(gh workflow view:*)",
+      "Bash(git add:*)",
+      "Bash(git blame:*)",
+      "Bash(git commit:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git mv:*)",
+      "Bash(git remote get-url:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git rm:*)",
+      "Bash(git show:*)",
+      "Bash(git status:*)",
+      "Bash(git -C * add *)",
+      "Bash(git -C * blame *)",
+      "Bash(git -C * commit *)",
+      "Bash(git -C * diff *)",
+      "Bash(git -C * log *)",
+      "Bash(git -C * mv *)",
+      "Bash(git -C * remote get-url *)",
+      "Bash(git -C * rev-parse *)",
+      "Bash(git -C * rm *)",
+      "Bash(git -C * show *)",
+      "Bash(git -C * status *)"
+    ],
+    "deny":
+    [
+      "Read(~/.aws/**)",
+      "Read(~/.bash_secrets)",
+      "Read(~/secret/*)",
+      "Read(~/.config/gh/**)",
+      "Read(~/.docker/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.ssh/**)"
+    ]
+  },
+  "hooks":
+  {
+    "Stop":
+    [
       {
-        "hooks": [
+        "hooks":
+        [
           {
             "type": "command",
             "command": "notify-send 'Claude done ❇️'"
@@ -11,7 +120,8 @@
       }
     ]
   },
-  "enabledPlugins": {
+  "enabledPlugins":
+  {
     "superpowers@claude-plugins-official": true,
     "slack@claude-plugins-official": true
   },
@@ -19,7 +129,8 @@
   "theme": "dark",
   "defaultMode": "acceptEdits",
   "voiceEnabled": true,
-  "voice": {
+  "voice":
+  {
     "enabled": true,
     "mode": "hold"
   }

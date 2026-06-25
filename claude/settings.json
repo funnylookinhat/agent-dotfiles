@@ -92,6 +92,7 @@
       "Bash(git add:*)",
       "Bash(git blame:*)",
       "Bash(git commit:*)",
+      "Bash(git check-ignore:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
       "Bash(git mv:*)",

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(npm install *)",
+      "Bash(npx lefthook *)",
+      "Bash(npm run *)",
+      "Skill(artifact-design)",
+      "Bash(gh repo *)",
+      "Bash(./import.sh *)",
+      "Bash(./install.sh *)"
+    ]
+  }
+}

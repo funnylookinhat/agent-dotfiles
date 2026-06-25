@@ -1,0 +1,13 @@
+{
+  "name": "agent-dotfiles",
+  "private": true,
+  "scripts": {
+    "format": "prettier --check \"**/*.md\"",
+    "format-fix": "prettier --write \"**/*.md\"",
+    "postinstall": "lefthook install"
+  },
+  "devDependencies": {
+    "lefthook": "^1.11.13",
+    "prettier": "^3.5.3"
+  }
+}

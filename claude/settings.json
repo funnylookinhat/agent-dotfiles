@@ -1,25 +1,6 @@
 {
-  "mcpServers_COMMENT":
-  [
-    "These are added so that backup.sh can automatically add and re-enable."
-  ],
-  "mcpServers":
-  {
-    "atlassian":
-    {
-      "type": "http",
-      "url": "https://mcp.atlassian.com/v1/mcp"
-    },
-    "honeycomb":
-    {
-      "type": "http",
-      "url": "https://mcp.honeycomb.io/mcp"
-    }
-  },
-  "permissions":
-  {
-    "allow":
-    [
+  "permissions": {
+    "allow": [
       "WebFetch",
       "WebSearch",
       "Read(~/.claude/skills/**)",
@@ -43,6 +24,7 @@
       "Bash(ls:*)",
       "Bash(mkdir:*)",
       "Bash(mkdir -p:*)",
+      "Bash(node *)",
       "Bash(pandoc:*)",
       "Bash(plutil -lint:*)",
       "Bash(pwd:*)",
@@ -111,10 +93,24 @@
       "Bash(git -C * rev-parse *)",
       "Bash(git -C * rm *)",
       "Bash(git -C * show *)",
-      "Bash(git -C * status *)"
+      "Bash(git -C * status *)",
+      "Bash(npm run:*)",
+      "Bash(npm test:*)",
+      "Bash(npm list:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npx mocha:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx prettier:*)",
+      "Bash(npx env-cmd:*)",
+      "Bash(git stash:*)",
+      "Bash(docker-compose:*)",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -m json.tool *)",
+      "Bash(gh pr:*)",
+      "mcp__honeycomb"
     ],
-    "deny":
-    [
+    "deny": [
       "Read(~/.aws/**)",
       "Read(~/.bash_secrets)",
       "Read(~/secret/*)",
@@ -124,13 +120,10 @@
       "Read(~/.ssh/**)"
     ]
   },
-  "hooks":
-  {
-    "Stop":
-    [
+  "hooks": {
+    "Stop": [
       {
-        "hooks":
-        [
+        "hooks": [
           {
             "type": "command",
             "command": "notify-send 'Claude done ❇️'"
@@ -139,18 +132,30 @@
       }
     ]
   },
-  "enabledPlugins":
-  {
+  "enabledPlugins": {
     "superpowers@claude-plugins-official": true,
     "slack@claude-plugins-official": true
   },
   "effortLevel": "high",
-  "theme": "dark",
-  "defaultMode": "acceptEdits",
-  "voiceEnabled": true,
-  "voice":
-  {
+  "voice": {
     "enabled": true,
     "mode": "hold"
-  }
+  },
+  "theme": "dark",
+  "voiceEnabled": true,
+  "mcpServers_COMMENT": [
+    "These are added so that import.sh can automatically add and re-enable."
+  ],
+  "mcpServers": {
+    "atlassian": {
+      "type": "http",
+      "url": "https://mcp.atlassian.com/v1/mcp"
+    },
+    "honeycomb": {
+      "type": "http",
+      "url": "https://mcp.honeycomb.io/mcp"
+    }
+  },
+  "defaultMode": "acceptEdits",
+  "model": "opus[1m]"
 }

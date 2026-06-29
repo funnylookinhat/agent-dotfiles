@@ -7,7 +7,7 @@
       "Bash(npm run *)",
       "Skill(artifact-design)",
       "Bash(gh repo *)",
-      "Bash(./import.sh *)",
+      "Bash(./backup.sh *)",
       "Bash(./install.sh *)"
     ]
   }

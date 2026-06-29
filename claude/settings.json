@@ -1,7 +1,7 @@
 {
   "mcpServers_COMMENT":
   [
-    "These are added so that import.sh can automatically add and re-enable."
+    "These are added so that backup.sh can automatically add and re-enable."
   ],
   "mcpServers":
   {

@@ -53,12 +53,12 @@ Copies `claude/` into `~/.claude/` and installs any plugins listed under `enable
 
 ## Syncing changes
 
-### Importing from ~/.claude
+### Backing up from ~/.claude
 
 After editing skills or settings directly in Claude Code, pull those changes back into the repo:
 
 ```sh
-./import.sh
+./backup.sh
 ```
 
 Copies `~/.claude/settings.json` and `~/.claude/skills/` into the `claude/` tree and auto-formats

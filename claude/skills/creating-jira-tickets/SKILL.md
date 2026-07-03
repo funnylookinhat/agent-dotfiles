@@ -27,6 +27,8 @@ Before drafting, collect the information needed:
   - **Issue type** (Epic, Story, Task, or Bug)
   - **Parent epic** (optional — ticket key or title; skip if not applicable)
   - **Capitalizable** — whether this work is capitalizable for accounting purposes (yes/no)
+  - **What are we doing and why?** (optional — why this work matters, what it means for the
+    business, and how it helps users; skip if not provided)
 - Review relevant code, designs, or prior tickets if referenced
 
 ### 2. Determine Issue Type
@@ -44,6 +46,11 @@ Select the appropriate type based on the work described:
 
 Write the ticket using the description template from `references/ticket-guide.md`. Load the
 reference file to get the appropriate template for the issue type.
+
+If the user provided a "What are we doing and why?" answer in step 1, add it as its own section
+titled `## What are we doing and why?` at the very top of the description, above the type-specific
+template. It is separate from the template's own Context/Goal section — do not merge the two. If the
+user did not provide it, omit the section entirely; do not invent one.
 
 **Key principles to follow while drafting:**
 

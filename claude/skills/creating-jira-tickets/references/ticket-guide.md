@@ -1,5 +1,19 @@
 # Jira Ticket Description Templates
 
+## Optional: What are we doing and why?
+
+When the user provides business rationale — why this work matters, what it means for the business,
+or how it helps users — place it in its own section at the very top of the description, above the
+type-specific template:
+
+```
+## What are we doing and why?
+<business rationale: why now, business impact, user benefit>
+```
+
+Include this section only when the user provides that rationale. Skip it otherwise — do not invent
+content, and do not fold it into the template's own Context/Goal section below.
+
 ## Epic
 
 ```

@@ -179,7 +179,9 @@ scripts/post-replies.sh --dry-run <pr> path/to/replies.json # preview without po
 ```
 
 `anchorId` is the value from `list-unresolved-threads.sh` (the thread's first comment). The script
-threads each reply correctly and reports one ok/FAILED line per entry.
+threads each reply correctly and reports one ok/FAILED line per entry. It also **auto-prefixes every
+reply with `SKILL:Handling-PR-Comments` + two newlines** — do NOT add that prefix to the `body`
+fields yourself.
 
 **Wording** (from superpowers:receiving-code-review): each `body` states the fix or gives technical
 reasoning. Use `OWNER/REPO@SHA` (full sha) so GitHub renders a clickable commit link. No

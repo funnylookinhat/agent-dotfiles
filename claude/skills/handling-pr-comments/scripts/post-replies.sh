@@ -42,6 +42,10 @@ fi
 jq -e 'type=="array" and (length>0) and all(.[]; has("anchorId") and has("body"))' "$file" >/dev/null 2>&1 \
   || { echo "replies.json must be a non-empty array of objects with anchorId and body" >&2; exit 1; }
 
+# Every reply is prefixed with this identifier + two newlines, so readers can see the
+# reply came from this skill. Applied idempotently (won't double-prefix).
+PREFIX=$'SKILL:Handling-PR-Comments\n\n'
+
 n="$(jq length "$file")"
 echo "posting $n repl$([[ "$n" == 1 ]] && echo y || echo ies) to $OWNER/$REPO#$PR$([[ $DRY == 1 ]] && echo ' (dry-run)' || true)" >&2
 
@@ -53,13 +57,17 @@ for i in $(seq 0 $((n-1))); do
   if [[ -z "$anchor" || "$anchor" == "null" ]]; then
     echo "  [$((i+1))/$n] SKIP: missing anchorId" >&2; fail=1; continue
   fi
+  case "$body" in
+    "SKILL:Handling-PR-Comments"*) full="$body" ;;   # already prefixed
+    *) full="${PREFIX}${body}" ;;
+  esac
   if [[ $DRY == 1 ]]; then
     echo "  [$((i+1))/$n] → comment $anchor:" >&2
-    printf '%s\n' "$body" | sed 's/^/        /' >&2
+    printf '%s\n' "$full" | sed 's/^/        /' >&2
     continue
   fi
   if url="$(gh api "repos/$OWNER/$REPO/pulls/$PR/comments/$anchor/replies" \
-             -f body="$body" --jq '.html_url' 2>"$err")"; then
+             -f body="$full" --jq '.html_url' 2>"$err")"; then
     echo "  [$((i+1))/$n] ok  → $url" >&2
   else
     echo "  [$((i+1))/$n] FAILED (comment $anchor): $(tr '\n' ' ' <"$err")" >&2

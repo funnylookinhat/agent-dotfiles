@@ -1,6 +1,5 @@
 {
   "permissions": {
-    "defaultMode": "acceptEdits",
     "allow": [
       "WebFetch",
       "WebSearch",
@@ -109,6 +108,9 @@
       "Bash(python3 -m json.tool)",
       "Bash(python3 -m json.tool *)",
       "Bash(gh pr:*)",
+      "Bash(/home/funnylookinhat/.claude/skills/handling-pr-comments/scripts/*)",
+      "Bash(/home/funnylookinhat/.claude/plugins/cache/claude-plugins-official/superpowers/*/skills/*/scripts/*)",
+      "Skill(superpowers:*)",
       "mcp__honeycomb"
     ],
     "deny": [
@@ -119,7 +121,8 @@
       "Read(~/.docker/**)",
       "Read(~/.gnupg/**)",
       "Read(~/.ssh/**)"
-    ]
+    ],
+    "defaultMode": "acceptEdits"
   },
   "hooks": {
     "Stop": [
@@ -142,6 +145,7 @@
     "enabled": true,
     "mode": "hold"
   },
+  "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "voiceEnabled": true,
   "mcpServers_COMMENT": [
@@ -156,5 +160,6 @@
       "type": "http",
       "url": "https://mcp.honeycomb.io/mcp"
     }
-  }
+  },
+  "model": "opus[1m]"
 }

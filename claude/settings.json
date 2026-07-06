@@ -109,8 +109,10 @@
       "Bash(python3 -m json.tool *)",
       "Bash(gh pr:*)",
       "Bash(/home/funnylookinhat/.claude/skills/handling-pr-comments/scripts/*)",
+      "Bash(/home/funnylookinhat/.claude/skills/reviewing-pr/scripts/*)",
       "Bash(/home/funnylookinhat/.claude/plugins/cache/claude-plugins-official/superpowers/*/skills/*/scripts/*)",
       "Skill(superpowers:*)",
+      "Skill(code-review)",
       "mcp__honeycomb"
     ],
     "deny": [

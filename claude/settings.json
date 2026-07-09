@@ -170,5 +170,6 @@
       "type": "http",
       "url": "https://mcp.honeycomb.io/mcp"
     }
-  }
+  },
+  "model": "opus[1m]"
 }

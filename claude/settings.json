@@ -4,6 +4,7 @@
       "WebFetch",
       "WebSearch",
       "Read(~/.claude/skills/**)",
+      "Read(~/.claude/plugins/cache/claude-plugins-official/**)",
       "Read(//tmp/**)",
       "Read(//private/tmp/**)",
       "Edit(//tmp/**)",
@@ -113,7 +114,26 @@
       "Bash(/home/funnylookinhat/.claude/plugins/cache/claude-plugins-official/superpowers/*/skills/*/scripts/*)",
       "Skill(superpowers:*)",
       "Skill(code-review)",
-      "mcp__honeycomb"
+      "mcp__honeycomb",
+      "Skill(artifact-design)",
+      "Skill(update-config)",
+      "mcp__atlassian__atlassianUserInfo",
+      "mcp__atlassian__createJiraIssue",
+      "mcp__atlassian__editJiraIssue",
+      "mcp__atlassian__getAccessibleAtlassianResources",
+      "mcp__atlassian__getJiraIssue",
+      "mcp__atlassian__getJiraIssueTypeMetaWithFields",
+      "mcp__atlassian__getJiraProjectIssueTypesMetadata",
+      "mcp__atlassian__getVisibleJiraProjects",
+      "mcp__atlassian__searchJiraIssuesUsingJql",
+      "mcp__plugin_slack_slack__slack_add_reaction",
+      "mcp__plugin_slack_slack__slack_read_thread",
+      "mcp__plugin_slack_slack__slack_send_message",
+      "Bash(terraform fmt *)",
+      "Bash(terraform validate *)",
+      "Bash(terraform version *)",
+      "Bash(docker compose *)",
+      "Bash(docker info *)"
     ],
     "deny": [
       "Read(~/.aws/**)",
@@ -133,6 +153,17 @@
           {
             "type": "command",
             "command": "notify-send 'Claude done ❇️'"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/funnylookinhat/.claude/git-safe/hook.sh"
           }
         ]
       }

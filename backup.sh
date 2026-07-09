@@ -26,6 +26,11 @@ if [[ -f "$SOURCE/gold-star-score.md" ]]; then
   cp "$SOURCE/gold-star-score.md" "$DEST/gold-star-score.md"
 fi
 
+if [[ -d "$SOURCE/git-safe" ]]; then
+  mkdir -p "$DEST/git-safe"
+  cp -r "$SOURCE/git-safe/." "$DEST/git-safe/"
+fi
+
 echo "Backed up claude config from $SOURCE"
 
 npm --prefix "$REPO_DIR" run format-fix

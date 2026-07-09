@@ -140,7 +140,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/home/funnylookinhat/.claude/git-safe/hook.sh"
+            "command": "$HOME/.claude/git-safe/hook.sh"
           }
         ]
       }

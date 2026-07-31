@@ -10,10 +10,13 @@ description:
 
 ## Overview
 
-Run the built-in **code-review** skill against a GitHub PR, then post its findings **onto the PR**
-as inline review comments (one per finding) plus one summary comment. Each comment is stamped
-`SKILL:Reviewing-PR` so a later run — and the [[handling-pr-comments]] skill — can recognize its own
-trail.
+Review a GitHub PR, then post the findings **onto the PR** as inline review comments (one per
+finding) plus one summary comment. Each comment is stamped `SKILL:Reviewing-PR` so a later run — and
+the [[handling-pr-comments]] skill — can recognize its own trail.
+
+The review itself runs **inline** (step 2) — a fan-out of finder agents over the PR diff, then an
+adversarial verify pass. It does **not** call the built-in `/code-review`; see
+[Why not /code-review](#why-not-code-review).
 
 Two modes, chosen automatically by `scripts/review-state.sh`:
 
@@ -51,14 +54,14 @@ Rules that keep the run prompt-free:
   `cd` — a compound line is matched as one blob and prompts. If you need a working directory, `cd`
   into the repo as its own call first (it persists); then run each script/`git`/`gh` command on its
   own.
-- **Take anchors from code-review, don't hunt for them.** Every finding from `ReportFindings`
-  already carries `file` and `line` — use them directly. Do **not** `grep -n`/open files to
-  re-derive line numbers; that's wasted work and an extra prompt surface.
+- **Take anchors from the diff, don't hunt for them.** Every finder reports the new-side line number
+  it read off the PR diff — use it directly. Do **not** `grep -n`/open files to re-derive line
+  numbers; that's wasted work and an extra prompt surface.
 - **Write JSON to the scratchpad, not the repo.** Put `findings.json`/`review.json` under your
   session scratchpad dir (writes there are pre-approved) — never in the PR's working tree, so the
   review leaves no stray files behind.
-- **Never route findings through `echo`.** code-review bodies contain newlines and backticks that
-  shells mangle. Build every JSON file with the **Write tool**.
+- **Never route findings through `echo`.** Finding bodies contain newlines and backticks that shells
+  mangle. Build every JSON file with the **Write tool**.
 
 ## Workflow
 
@@ -68,7 +71,7 @@ Rules that keep the run prompt-free:
 gh pr checkout N --repo OWNER/REPO   # or: gh pr checkout <url>
 ```
 
-The working tree must be the PR head so (a) code-review reviews the PR's changes and (b) the
+The working tree must be the PR head so (a) the finders review the PR's changes and (b) the
 incremental diff is computable locally. `gh pr checkout` also wires the correct upstream for fork
 PRs.
 
@@ -89,22 +92,58 @@ Returns one JSON object:
 (The script reads resolution/marker state via `gh api`; it's the single source of the decision —
 read it if you need to extend the fields.)
 
-### 2. Run the built-in code-review skill
+### 2. Review the diff (inline)
 
-Invoke the **code-review** skill (via the Skill tool). **Do NOT pass `--comment` or `--fix`** —
-`--comment` posts un-prefixed comments and bypasses incremental filtering; you post yourself in
-step 5. Pass through the effort level the caller asked for (default: no flag).
+Read the diff once and work from it. Don't re-read whole files unless a finder needs surrounding
+context to confirm something:
 
-code-review reports each issue through the `ReportFindings` tool. Collect, for every finding: its
-`file`, `line`, and a one-paragraph body built from `summary` + `failure_scenario`. If code-review
-reports **no** findings, skip to step 5 with an empty `findings` array (the summary comment still
-posts, advancing the marker).
+```bash
+gh pr diff <pr>
+```
+
+**Phase A — parallel finders.** Launch these agents via the Agent tool **in a single message** so
+they run concurrently. Give each one the PR diff, the repo path, its angle, and the finding contract
+below. For a small diff (under ~200 changed lines) or `low` effort, run angles 1–3 only; at
+`high`/`max`, run all five.
+
+| #   | Angle          | Brief                                                                                                                                                                     |
+| --- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Correctness    | Bugs in the changed lines: off-by-one, null/undefined, inverted condition, broken control flow, resource leaks, races. Read surrounding code only to confirm a suspicion. |
+| 2   | Error handling | Swallowed exceptions, bare catches, fallbacks that mask real failures, unchecked return values, errors logged but never surfaced.                                         |
+| 3   | Conventions    | Adherence to the repo's CLAUDE.md and to the idiom of the surrounding code. Flag only what CLAUDE.md or nearby code actually establishes — never personal preference.     |
+| 4   | History        | `git log` / `git blame` the touched regions. Flag changes that reintroduce a previously-fixed bug or undo the reason the code was written that way.                       |
+| 5   | Tests          | New or changed behavior with no test covering it. Meaningful gaps only — don't demand coverage of trivial code.                                                           |
+
+Each finder returns a list of findings in exactly this shape, and nothing else:
+
+| Field              | Meaning                                                                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `path`             | repo-relative, exactly as it appears in the diff                                                                                            |
+| `line`             | the **new-side (RIGHT)** line number, and it **must be a line the diff adds or touches** — GitHub rejects inline comments anchored off-diff |
+| `summary`          | one sentence: what is wrong                                                                                                                 |
+| `failure_scenario` | concrete inputs/state → wrong output or crash                                                                                               |
+| `confidence`       | 0–100                                                                                                                                       |
+
+**Phase B — adversarial verify.** For each candidate at confidence ≥ 50, launch one skeptic agent
+per finding (batched in one message) whose job is to **refute** it: re-derive the claim against the
+real code and report `refuted: true` if it doesn't hold. Instruct it to default to `refuted: true`
+when uncertain. Drop everything refuted. (Skip this phase only at `low` effort.)
+
+**Phase C — filter and dedupe.** Drop findings that are:
+
+- **pre-existing** — the same problem is already on the base branch (`git show <baseSha>:<path>`),
+- **CI's job** — anything a linter, typechecker, or compiler catches,
+- **nitpicks** a senior engineer wouldn't raise in review,
+- **duplicates** — collapse to one comment per `path:line`, merging the bodies.
+
+What survives is your findings list. **Zero surviving findings is a valid result** — go to step 5
+with an empty `findings` array; the summary comment still posts and advances the sha marker.
 
 ### 3. Write `findings.json`
 
-With the **Write tool**, write the collected findings to a JSON file **in your session scratchpad
-dir** (not the repo). The `path` field is repo-relative, matching what code-review reported; the
-`line` comes straight from the finding — do not re-derive it:
+With the **Write tool**, write the surviving findings to a JSON file **in your session scratchpad
+dir** (not the repo). Build each `body` from the finding's `summary` + `failure_scenario`. The
+`path` and `line` come straight from the finding — do not re-derive them:
 
 ```json
 [
@@ -163,7 +202,7 @@ lines not in the PR diff; those report `FAILED` per line but don't abort the run
 | ------------------ | ---------------------------------------------------------------------------------- |
 | Checkout           | `gh pr checkout N --repo OWNER/REPO`                                               |
 | Decide mode        | `scripts/review-state.sh <pr>` → `{ mode, headSha, lastReviewedSha, … }`           |
-| Get findings       | run **code-review** skill (no `--comment`/`--fix`); collect from `ReportFindings`  |
+| Get findings       | `gh pr diff <pr>` → finder agents (A) → skeptic agents (B) → filter/dedupe (C)     |
 | Write findings     | **Write tool** → `findings.json` (`[{path,line,body}]`)                            |
 | Incremental filter | `scripts/filter-incremental-findings.sh <lastReviewedSha> <headSha> findings.json` |
 | Post               | **Write** `review.json`, then `scripts/post-review.sh <pr> <headSha> review.json`  |
@@ -176,12 +215,16 @@ The whole workflow is designed to run without approval prompts. It relies on the
 ```jsonc
 // ~/.claude/settings.json → permissions.allow
 "Bash(/home/funnylookinhat/.claude/skills/reviewing-pr/scripts/*)",  // all three scripts, incl. real posting
-"Skill(code-review)",                                                // invoke the review skill
 // already present and relied on:
-"Bash(gh pr:*)",            // gh pr checkout
-"Bash(git diff:*)", "Bash(git -C * diff *)", "Bash(git blame:*)",    // code-review's finder agents
+"Bash(gh pr:*)",            // gh pr checkout, gh pr diff
+"Bash(gh api:*)",           // review-state.sh, post-review.sh
+"Bash(git *)",              // git diff / blame / log / fetch, incl. from the finder agents
 "Write(//tmp/**)"           // findings.json / review.json in the scratchpad
 ```
+
+The Agent tool itself never prompts, but a finder agent's Bash calls are matched against **this same
+allowlist** — that's why `Bash(git *)` and `Bash(gh pr:*)` matter for step 2, not just for the
+top-level run.
 
 The scripts glob auto-allows `post-review.sh` **actually posting** to GitHub. To require a human
 confirmation before comments hit a PR, replace the glob with per-script rules and gate posting to
@@ -198,8 +241,10 @@ into standalone Bash calls so the allowlist can match each one.
 
 ## Common mistakes
 
-- **Passing `--comment` to code-review** — posts un-prefixed comments and skips incremental
-  filtering. Run code-review plain; post with `post-review.sh`.
+- **Trying to invoke `/code-review` via the Skill tool** — it will always be refused. See
+  [Why not /code-review](#why-not-code-review); do the inline review in step 2 instead.
+- **Anchoring a finding to a line the diff doesn't touch** — GitHub rejects the comment (`FAILED` in
+  the post output). Finders must report new-side line numbers read off the PR diff.
 - **Posting in `full` mode when state says `incremental`** — you re-comment on already-reviewed
   (maybe already-handled) code. Always run `review-state.sh` first and honor `mode`.
 - **Skipping the summary comment** — it carries the sha marker. Without it the next run can't tell
@@ -207,10 +252,35 @@ into standalone Bash calls so the allowlist can match each one.
   it.
 - **Building JSON with `echo`/heredocs** — mangles newlines/backticks in finding bodies. Use the
   Write tool.
-- **Committing to a new branch instead of `gh pr checkout`** — code-review then reviews the wrong
+- **Committing to a new branch instead of `gh pr checkout`** — the finders then review the wrong
   diff and inline anchors won't match the PR.
 - **Adding the `SKILL:Reviewing-PR` prefix by hand** — `post-review.sh` applies it idempotently;
   doing both is fine but unnecessary.
+
+## Why not /code-review
+
+Earlier versions of this skill told you to invoke the built-in **code-review** skill in step 2.
+**That never works from inside a skill, and no permission entry can make it work.** Don't reinstate
+it, and don't add `"Skill(code-review)"` back to the allowlist — the entry is inert.
+
+The built-in command is registered in the CLI with:
+
+```js
+userInvocable: true,
+disableModelInvocation: true,   // "the model cannot invoke this via the Skill tool;
+                                //  only users can type the slash command"
+getContext(…) { … return "fork" }
+```
+
+Two independent blockers: the Skill tool rejects the name before permissions are ever consulted, and
+the command forks the session rather than returning findings to a caller. Nothing else fills the gap
+either — built-in `/review` is a bare prompt template with no finder agents and no `ReportFindings`,
+and the marketplace `code-review@claude-plugins-official` plugin posts its own un-prefixed
+`gh pr comment`, which would bypass the `SKILL:Reviewing-PR` stamp, the incremental filter, and the
+sha marker.
+
+If you specifically want the built-in engine on a PR, that's a human action: type
+`/code-review <pr>` yourself. This skill's step 2 is the unattended path.
 
 ## Note on the handling-pr-comments prefix
 

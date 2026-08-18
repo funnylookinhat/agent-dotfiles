@@ -1,1 +1,1 @@
-gold_stars: 9 demerits: 0
+gold_stars: 12 demerits: 0

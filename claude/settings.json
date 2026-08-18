@@ -9,9 +9,8 @@
       "Read(//private/tmp/**)",
       "Edit(//tmp/**)",
       "Edit(//private/tmp/**)",
-      "Write(//tmp/**)",
-      "Write(//private/tmp/**)",
-      "Write(~/.claude/gold-star-score.md)",
+      "Edit(~/.claude/gold-star-score.md)",
+      "Bash(awk:*)",
       "Bash(cd:*)",
       "Bash(cut:*)",
       "Bash(diff:*)",
@@ -19,6 +18,8 @@
       "Bash(file:*)",
       "Bash(find:*)",
       "Bash(grep:*)",
+      "Bash(head:*)",
+      "Bash(herdr:*)",
       "Bash(jq:*)",
       "Bash(launchctl list:*)",
       "Bash(launchctl print:*)",
@@ -28,9 +29,13 @@
       "Bash(node *)",
       "Bash(pandoc:*)",
       "Bash(plutil -lint:*)",
+      "Bash(printenv:*)",
       "Bash(pwd:*)",
       "Bash(rg:*)",
+      "Bash(sed:*)",
       "Bash(sort:*)",
+      "Bash(tail:*)",
+      "Bash(test:*)",
       "Bash(tr:*)",
       "Bash(tree:*)",
       "Bash(type:*)",
@@ -73,6 +78,7 @@
       "Bash(gh workflow list:*)",
       "Bash(gh workflow view:*)",
       "Bash(git *)",
+      "Bash(npm ci:*)",
       "Bash(npm run:*)",
       "Bash(npm test:*)",
       "Bash(npm list:*)",
@@ -82,6 +88,7 @@
       "Bash(npx eslint:*)",
       "Bash(npx prettier:*)",
       "Bash(npx env-cmd:*)",
+      "Bash(docker:*)",
       "Bash(docker-compose:*)",
       "Bash(python3 -m json.tool)",
       "Bash(python3 -m json.tool *)",
@@ -91,6 +98,8 @@
       "Bash(/home/funnylookinhat/.claude/plugins/cache/claude-plugins-official/superpowers/*/skills/*/scripts/*)",
       "Skill(superpowers:*)",
       "mcp__honeycomb",
+      "mcp__cloudflare__docs",
+      "mcp__cloudflare__search",
       "Skill(artifact-design)",
       "Skill(update-config)",
       "mcp__atlassian__atlassianUserInfo",
@@ -107,9 +116,7 @@
       "mcp__plugin_slack_slack__slack_send_message",
       "Bash(terraform fmt *)",
       "Bash(terraform validate *)",
-      "Bash(terraform version *)",
-      "Bash(docker compose *)",
-      "Bash(docker info *)"
+      "Bash(terraform version *)"
     ],
     "deny": [
       "Read(~/.aws/**)",
@@ -120,19 +127,10 @@
       "Read(~/.gnupg/**)",
       "Read(~/.ssh/**)"
     ],
-    "defaultMode": "acceptEdits"
+    "defaultMode": "auto"
   },
+  "model": "opus[1m]",
   "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "notify-send 'Claude done ❇️'"
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "matcher": "Bash",
@@ -140,6 +138,14 @@
           {
             "type": "command",
             "command": "$HOME/.claude/git-safe/hook.sh"
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/allow-docker.sh"
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/allow-npm-run.sh"
           }
         ]
       }
@@ -157,6 +163,25 @@
   },
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
+  "autoMode": {
+    "soft_deny": [
+      "$defaults",
+      "Migration Outside Tooling [named+specifics — **must name:** the ad-hoc schema change and its target database]: Running database migrations or schema changes outside the project's own migration CLI or the project's CI migration workflow, including against development databases, since ad-hoc changes bypass the review and rollback path. Ephemeral throwaway databases (docker-compose, local SQLite) are exempt. This rule does not relax Production Deploy: running the project's migration CLI against production still needs that rule's bar."
+    ],
+    "environment": [
+      "$defaults",
+      "Organization: Moz (SEO software; GitHub org `seomoz`). Primary use: software development and infrastructure automation.",
+      "Cloud provider(s): AWS (primary) and Cloudflare (DNS/edge). No GCP or Azure.",
+      "Repository visibility: repositories under the `seomoz` GitHub org are private by default; treat a visibility check showing a specific repo is public as authoritative over this entry.",
+      "Source control: github.com/seomoz and all repos under it.",
+      "Trusted internal domains: *.moz.com and *.moz.local. A host not matching these is external regardless of how internal its name looks.",
+      "Network posture: internal services and AWS resources are reachable only over the corporate VPN.",
+      "Key internal services: GitHub Actions (CI/CD), Honeycomb, Datadog and Sentry (observability), Atlassian Jira and Confluence (tickets and docs), and Slack (team messaging). These are trusted destinations for data-flow purposes only: sending data to them is not transmission outside the organization. Content, audience, and External System Writes rules still apply in full.",
+      "CI/CD deploy targets: deploys run as GitHub Actions workflows in the seomoz org rather than direct pushes to hosts. In most seomoz repositories a merge or push to `main` or `master` triggers a production deploy, so treat landing changes on the default branch of a seomoz repo as a production deploy rather than an ordinary push. Pushes to non-default feature branches are ordinary pushes.",
+      "Secrets management: AWS SSM Parameter Store.",
+      "Sensitive data locations & audiences: Moz's aggregate crawl, link-graph, keyword and index data is business-confidential and may be shared inside Moz but never published externally. Customer account, campaign, keyword, and other customer project data is personal/entrusted: it may be shared internally at Moz (Slack, Jira, Confluence) but never sent outside the organization or published. Customer billing records and payment information are strictly confidential: access them only when the task explicitly requires it, treat any read of them as sensitive, and never copy them into tickets, messages, logs, or other systems."
+    ]
+  },
   "voiceEnabled": true,
   "mcpServers_COMMENT": [
     "These are added so that import.sh can automatically add and re-enable."

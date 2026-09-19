@@ -7,15 +7,16 @@ description:
 
 # Gold Star / Demerit Tracker
 
-Score file: `~/.claude/gold-star-score.md` (format: `gold_stars: N` / `demerits: N` on separate
-lines; treat missing file as 0/0)
+Make exactly one Bash call, then reply with its stdout verbatim. The script owns the arithmetic and
+the file (`~/.claude/gold-star-score.json`) — do not read, compute, or write the tally yourself.
 
-Always: read file → update → write file → report. Never just acknowledge conversationally.
+| Trigger                                 | Command                                                  |
+| --------------------------------------- | -------------------------------------------------------- |
+| "gold star" / gold-star / ⭐            | `~/.claude/skills/gold-star-demerit/star.sh`             |
+| "demerit"                               | `~/.claude/skills/gold-star-demerit/demerit.sh`          |
+| "score" / "tally" / "how are you doing" | `~/.claude/skills/gold-star-demerit/bump.sh` (read-only) |
 
-| Trigger                                 | Action              | Report                                         |
-| --------------------------------------- | ------------------- | ---------------------------------------------- |
-| "gold star" / gold-star / ⭐            | `gold_stars += 1`   | "⭐ Gold star! Stars: N, Demerits: N → net: N" |
-| "demerit"                               | `demerits += 1`     | "📋 Demerit. Stars: N, Demerits: N → net: N"   |
-| "score" / "tally" / "how are you doing" | read only, no write | "Score: N ⭐ / N 📋 → net: N"                  |
+Each prints the finished report line, e.g. `⭐ Gold star! Stars: 14, Demerits: 0 → net: 14`. That
+line is the whole reply. Never just acknowledge conversationally.
 
-Net = gold_stars − demerits. Always read first to preserve the other counter.
+Non-zero exit means the score file is unreadable: report the error, don't repair the file by hand.

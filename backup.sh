@@ -4,6 +4,7 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE="$HOME/.claude"
 DEST="$REPO_DIR/claude"
+CLAUDE_JSON="$HOME/.claude.json"
 
 current_branch=$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD)
 if [[ "$current_branch" != "main" ]]; then
@@ -32,6 +33,15 @@ if [[ -d "$SOURCE/git-safe" ]]; then
 fi
 
 echo "Backed up claude config from $SOURCE"
+
+# ~/.claude.json holds MCP server config alongside machine identity, account
+# details, per-project session state and server caches. Extract only the
+# mcpServers key so none of the rest can ever land in the repo.
+if [[ -f "$CLAUDE_JSON" ]]; then
+  mkdir -p "$REPO_DIR/claude-json"
+  jq -S '{mcpServers: (.mcpServers // {})}' "$CLAUDE_JSON" > "$REPO_DIR/claude-json/mcp-servers.json"
+  echo "Backed up MCP servers from $CLAUDE_JSON"
+fi
 
 npm --prefix "$REPO_DIR" run format-fix
 

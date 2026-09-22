@@ -13,6 +13,9 @@ claude/                           # Maps to ~/.claude/
     ├── creating-jira-tickets/    # Draft and create Jira tickets via Atlassian MCP
     ├── gold-star-demerit/        # Track gold stars and demerits across sessions
     └── refining-jira-tickets/    # Review and improve existing Jira tickets
+
+claude-json/                      # Selected keys from ~/.claude.json
+└── mcp-servers.json              # User-scope MCP server definitions
 ```
 
 Each skill directory contains a `SKILL.md` that defines the skill's behavior, and optionally a
@@ -48,8 +51,12 @@ Installs [Prettier](https://prettier.io) for markdown formatting and
 ./install.sh
 ```
 
-Copies `claude/` into `~/.claude/` and installs any plugins listed under `enabledPlugins` in
-`settings.json` via the Claude CLI.
+Copies `claude/` into `~/.claude/`, installs any plugins listed under `enabledPlugins` in
+`settings.json`, and registers the MCP servers from `claude-json/mcp-servers.json` via the Claude
+CLI. Servers that are already configured are left alone.
+
+MCP servers still need to be authenticated once per machine with `/mcp` inside Claude Code — only
+their definitions are version-controlled, never their credentials.
 
 ## Syncing changes
 
@@ -61,8 +68,30 @@ After editing skills or settings directly in Claude Code, pull those changes bac
 ./backup.sh
 ```
 
-Copies `~/.claude/settings.json` and `~/.claude/skills/` into the `claude/` tree and auto-formats
-all markdown so the pre-commit hook passes cleanly.
+Copies `~/.claude/settings.json` and `~/.claude/skills/` into the `claude/` tree, extracts the MCP
+server definitions from `~/.claude.json` into `claude-json/mcp-servers.json`, and auto-formats all
+markdown so the pre-commit hook passes cleanly.
+
+### What is backed up from ~/.claude.json
+
+MCP servers are configured in `~/.claude.json` rather than `settings.json`, so `backup.sh` reads
+that file too — but it extracts only the `mcpServers` key. Because it builds the output from that
+one key rather than filtering keys out, nothing else in the file can leak into the repo as Claude
+Code adds new state over time.
+
+Everything else in `~/.claude.json` is deliberately left out:
+
+- `projects` — per-project session IDs, costs, token counts and absolute paths. It also holds
+  `hasTrustDialogAccepted`, and restoring that would pre-trust directories on a new machine.
+- `oauthAccount`, `userID`, `machineID` — account and machine identity, repopulated on login.
+- `cachedGrowthBookFeatures`, `cachedExperimentData`, `modelAccessCache` and friends — server-side
+  caches that churn constantly and mean nothing on another machine.
+- `githubRepoPaths`, `skillUsage`, `pluginUsage`, `tipsHistory` and the various `*SeenCount` flags —
+  local path mappings, usage telemetry and dismissed-UI state.
+
+The MCP servers listed by `claude mcp list` under `claude.ai <name>` are not in `~/.claude.json` at
+all; they sync from your claude.ai account on login. Servers prefixed `plugin:` come from installed
+plugins. Neither needs backing up here.
 
 ## Development
 

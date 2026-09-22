@@ -184,18 +184,5 @@
       "Sensitive data locations & audiences: Moz's aggregate crawl, link-graph, keyword and index data is business-confidential and may be shared inside Moz but never published externally. Customer account, campaign, keyword, and other customer project data is personal/entrusted: it may be shared internally at Moz (Slack, Jira, Confluence) but never sent outside the organization or published. Customer billing records and payment information are strictly confidential: access them only when the task explicitly requires it, treat any read of them as sensitive, and never copy them into tickets, messages, logs, or other systems."
     ]
   },
-  "voiceEnabled": true,
-  "mcpServers_COMMENT": [
-    "These are added so that import.sh can automatically add and re-enable."
-  ],
-  "mcpServers": {
-    "atlassian": {
-      "type": "http",
-      "url": "https://mcp.atlassian.com/v1/mcp"
-    },
-    "honeycomb": {
-      "type": "http",
-      "url": "https://mcp.honeycomb.io/mcp"
-    }
-  }
+  "voiceEnabled": true
 }

@@ -1,8 +1,10 @@
 {
+  "cleanupPeriodDays": 365,
   "permissions": {
     "allow": [
       "Bash(/home/funnylookinhat/.claude/plugins/cache/claude-plugins-official/superpowers/*/skills/*/scripts/*)",
       "Bash(/home/funnylookinhat/.claude/skills/gold-star-demerit/*)",
+      "Bash(/home/funnylookinhat/.claude/skills/handle-multiple-tickets/*)",
       "Bash(/home/funnylookinhat/.claude/skills/handle-ticket/scripts/*)",
       "Bash(/home/funnylookinhat/.claude/skills/handling-pr-comments/scripts/*)",
       "Bash(/home/funnylookinhat/.claude/skills/reviewing-pr/scripts/*)",
@@ -107,8 +109,13 @@
       "mcp__atlassian__atlassianUserInfo",
       "mcp__atlassian__createJiraIssue",
       "mcp__atlassian__editJiraIssue",
+      "mcp__atlassian__fetch",
       "mcp__atlassian__getAccessibleAtlassianResources",
+      "mcp__atlassian__getConfluencePage",
+      "mcp__atlassian__getConfluencePageFooterComments",
+      "mcp__atlassian__getConfluencePageInlineComments",
       "mcp__atlassian__getJiraIssue",
+      "mcp__atlassian__getJiraIssueRemoteIssueLinks",
       "mcp__atlassian__getJiraIssueTypeMetaWithFields",
       "mcp__atlassian__getJiraProjectIssueTypesMetadata",
       "mcp__atlassian__getVisibleJiraProjects",
@@ -116,6 +123,15 @@
       "mcp__cloudflare__docs",
       "mcp__cloudflare__search",
       "mcp__honeycomb",
+      "mcp__plugin_moz-wide_atlassian__atlassianUserInfo",
+      "mcp__plugin_moz-wide_atlassian__fetch",
+      "mcp__plugin_moz-wide_atlassian__getAccessibleAtlassianResources",
+      "mcp__plugin_moz-wide_atlassian__getConfluencePage",
+      "mcp__plugin_moz-wide_atlassian__getConfluencePageFooterComments",
+      "mcp__plugin_moz-wide_atlassian__getConfluencePageInlineComments",
+      "mcp__plugin_moz-wide_atlassian__getJiraIssue",
+      "mcp__plugin_moz-wide_atlassian__getJiraIssueRemoteIssueLinks",
+      "mcp__plugin_moz-wide_atlassian__searchJiraIssuesUsingJql",
       "mcp__plugin_slack_slack__slack_add_reaction",
       "mcp__plugin_slack_slack__slack_read_thread",
       "mcp__plugin_slack_slack__slack_send_message"
@@ -131,7 +147,7 @@
     ],
     "defaultMode": "auto"
   },
-  "model": "opus[1m]",
+  "model": "fable",
   "hooks": {
     "PreToolUse": [
       {
@@ -155,9 +171,17 @@
   },
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true,
-    "slack@claude-plugins-official": true
+    "slack@claude-plugins-official": true,
+    "moz-wide@ai-foundations": true
   },
-  "extraKnownMarketplaces": {},
+  "extraKnownMarketplaces": {
+    "ai-foundations": {
+      "source": {
+        "source": "github",
+        "repo": "seomoz/ai-foundations"
+      }
+    }
+  },
   "effortLevel": "high",
   "voice": {
     "enabled": true,

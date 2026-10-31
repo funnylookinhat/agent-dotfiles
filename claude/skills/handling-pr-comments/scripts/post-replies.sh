@@ -42,9 +42,12 @@ fi
 jq -e 'type=="array" and (length>0) and all(.[]; has("anchorId") and has("body"))' "$file" >/dev/null 2>&1 \
   || { echo "replies.json must be a non-empty array of objects with anchorId and body" >&2; exit 1; }
 
-# Every reply is prefixed with this identifier + two newlines, so readers can see the
-# reply came from this skill. Applied idempotently (won't double-prefix).
-PREFIX=$'SKILL:Handling-PR-Comments\n\n'
+# Every reply is prefixed with a visible identifier line, then a hidden marker line, then a blank
+# line. The visible prefix is what reviewing-pr's review-state.sh keys on (startswith), so it stays
+# first; the hidden marker lets other tooling (e.g. moz-wide:improve-review-guidance, which harvests
+# *human* replies to review comments) tell these replies apart from a person's. Applied
+# idempotently (won't double-prefix).
+PREFIX=$'SKILL:Handling-PR-Comments\n<!-- handling-pr-comments:v1 -->\n\n'
 
 n="$(jq length "$file")"
 echo "posting $n repl$([[ "$n" == 1 ]] && echo y || echo ies) to $OWNER/$REPO#$PR$([[ $DRY == 1 ]] && echo ' (dry-run)' || true)" >&2
@@ -58,7 +61,7 @@ for i in $(seq 0 $((n-1))); do
     echo "  [$((i+1))/$n] SKIP: missing anchorId" >&2; fail=1; continue
   fi
   case "$body" in
-    "SKILL:Handling-PR-Comments"*) full="$body" ;;   # already prefixed
+    "SKILL:Handling-PR-Comments"*|*"<!-- handling-pr-comments:v1 -->"*) full="$body" ;;   # already prefixed/marked
     *) full="${PREFIX}${body}" ;;
   esac
   if [[ $DRY == 1 ]]; then

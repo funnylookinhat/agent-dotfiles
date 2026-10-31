@@ -1,0 +1,4 @@
+[{"id":11,"in_reply_to_id":null,"created_at":"2026-10-31T10:00:01Z","body":"<!-- moz-review:v1 -->\n**[review-pr: blocking]** One."},
+ {"id":12,"in_reply_to_id":null,"created_at":"2026-10-31T10:00:02Z","body":"<!-- moz-review:v1 -->\n**[review-pr: blocking]** Two."},
+ {"id":13,"in_reply_to_id":null,"created_at":"2026-10-20T10:00:00Z","body":"<!-- moz-review:v1 -->\n**[review-pr: nit]** From an OLDER run, before the marker — must not count."},
+ {"id":14,"in_reply_to_id":null,"created_at":"2026-10-31T13:00:00Z","body":"A human comment."}]

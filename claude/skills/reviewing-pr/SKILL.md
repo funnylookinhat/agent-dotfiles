@@ -1,9 +1,10 @@
 ---
 name: reviewing-pr
 description:
-  Use when asked to code-review a GitHub pull request and post the findings onto the PR — either a
-  first full review of the whole PR, or a follow-up that reviews only what changed since the skill's
-  last review.
+  Use when asked to code-review a GitHub pull request and post the findings onto the PR, and
+  /moz-wide:review-pr does not apply — the repo is outside the seomoz org, that plugin is not
+  installed, or the user named this skill. Personal fallback reviewer; covers a first full review or
+  a follow-up on what changed since this skill's last review.
 ---
 
 # Reviewing PR
@@ -29,6 +30,15 @@ Two modes, chosen automatically by `scripts/review-state.sh`:
 **Core principle:** never re-litigate code you already commented on. The sha of each review is
 recorded in a hidden marker; the next run diffs from there.
 
+## Relationship to moz-wide:review-pr
+
+In seomoz repos the plugin skill `/moz-wide:review-pr` is the default reviewer; this skill is the
+fallback for everything else. The orchestrators (`handle-ticket`, `handle-multiple-tickets`) choose
+between the two with `handle-ticket/scripts/resolve-review-skill.sh` — do not pick by hand inside
+them. This skill reads only its own `reviewing-pr:sha=` marker: run on a PR the plugin already
+reviewed, it starts a full review of its own and will re-raise what the plugin raised.
+`handle-ticket/scripts/review-status.sh <pr>` shows which engine last reviewed a PR.
+
 ## Inputs
 
 The PR is given as a URL (`https://github.com/OWNER/REPO/pull/N`), `OWNER/REPO#N`, or a bare number
@@ -39,7 +49,10 @@ straight through.
 
 The three bundled scripts are allowlisted as a group (see
 [Running unattended](#running-unattended)), so each runs without a prompt **only when invoked as its
-own standalone command**. Everything else uses read-only built-in tools, which never prompt:
+own standalone command, by absolute path**
+(`/home/funnylookinhat/.claude/skills/reviewing-pr/scripts/<name>.sh` — your cwd is the repo, where
+a relative `scripts/…` does not exist). Everything else uses read-only built-in tools, which never
+prompt:
 
 | To…                                       | Use                               | NOT                     |
 | ----------------------------------------- | --------------------------------- | ----------------------- |

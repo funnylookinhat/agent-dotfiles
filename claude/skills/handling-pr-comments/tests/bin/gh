@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Test double for `gh api`. Set GH_FIXTURE_DIR to a directory of <path>.json files,
+# where <path> is the API path with every "/" replaced by "_".
+set -euo pipefail
+[[ "${1:-}" == "api" ]] || { echo "fake gh: only 'api' is supported" >&2; exit 1; }
+shift
+[[ "${1:-}" == "--paginate" ]] && shift
+path="$1"
+f="$GH_FIXTURE_DIR/${path//\//_}.json"
+[[ -f "$f" ]] || { echo "fake gh: no fixture for $path ($f)" >&2; exit 1; }
+cat "$f"

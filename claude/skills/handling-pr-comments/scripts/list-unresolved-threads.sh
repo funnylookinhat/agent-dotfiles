@@ -2,10 +2,12 @@
 # list-unresolved-threads.sh — print the UNRESOLVED review threads on a GitHub PR as JSON.
 #
 # Usage:
-#   list-unresolved-threads.sh <pr>
+#   list-unresolved-threads.sh [--all] <pr>
 #     <pr> = a PR URL (https://github.com/OWNER/REPO/pull/N)
 #          | OWNER/REPO#N
 #          | N            (bare number — uses the repo in the current directory)
+#     --all  also include threads whose LAST comment is this skill's own reply (awaitingUs == false).
+#            By default those are dropped, so a re-run never answers itself.
 #
 # Output: a JSON array to stdout, one object per unresolved thread:
 #   {
@@ -14,18 +16,33 @@
 #     "path":      "src/foo.py",
 #     "line":      88,                # may be null on outdated threads
 #     "isOutdated": false,
+#     "origin":    "moz-review" | "reviewing-pr" | "human",   # who opened the thread (see below)
+#     "severity":  "blocking" | "nit" | "pre-existing" | null, # moz-review's tag on the opener
+#     "lastIsOurs": false,            # last comment is a SKILL:Handling-PR-Comments reply
+#     "awaitingUs": true,             # !lastIsOurs — someone else spoke last, so it needs a decision
 #     "comments": [ { "author","createdAt","databaseId","body","diffHunk" }, ... ]  # full thread, in order
 #   }
+#
+# origin is decided from the FIRST comment's body, never its author — both review skills post under
+# the invoker's own GitHub identity, so author tells you nothing:
+#   moz-review    body contains `<!-- moz-review:v1 -->`      (moz-wide:review-pr plugin skill)
+#   reviewing-pr  body starts with `SKILL:Reviewing-PR`       (personal reviewing-pr skill)
+#   human         anything else
 #
 # Resolution state lives ONLY in the GraphQL reviewThreads API; this filters isResolved==false.
 # isOutdated is reported but NOT treated as resolved — an outdated thread can still be open.
 # Requires: gh (authenticated), jq.
 set -euo pipefail
 
+ALL=0
+if [[ "${1:-}" == "--all" ]]; then ALL=1; shift; fi
 if [[ $# -lt 1 ]]; then
-  echo "usage: $(basename "$0") <pr-url | owner/repo#N | N>" >&2
+  echo "usage: $(basename "$0") [--all] <pr-url | owner/repo#N | N>" >&2
   exit 2
 fi
+
+HANDLING_PREFIX="${HANDLING_PREFIX:-SKILL:Handling-PR-Comments}"
+HANDLING_MARKER="${HANDLING_MARKER:-<!-- handling-pr-comments:v1 -->}"
 
 ref="$1"
 if [[ "$ref" =~ ^https?://github\.com/([^/]+)/([^/]+)/pull/([0-9]+) ]]; then
@@ -47,7 +64,7 @@ fi
 # one raw response object per page. We do NOT use gh's --jq (it prints text that leaves
 # newlines/tabs in diffHunk/body unescaped, which breaks a downstream parse); instead a
 # single `jq -s` slurps all page responses and reshapes across them.
-gh api graphql --paginate \
+all_threads="$(gh api graphql --paginate \
   -f owner="$OWNER" -f name="$REPO" -F pr="$PR" \
   -f query='
 query($owner:String!, $name:String!, $pr:Int!, $endCursor:String) {
@@ -65,16 +82,34 @@ query($owner:String!, $name:String!, $pr:Int!, $endCursor:String) {
     }
   }
 }' \
-  | jq -s '[ .[].data.repository.pullRequest.reviewThreads.nodes[]
-             | select(.isResolved == false)
-             | { threadId:   .id,
-                 anchorId:   (.comments.nodes[0].databaseId),
-                 path:       .path,
-                 line:       .line,
-                 isOutdated: .isOutdated,
-                 comments:   [ .comments.nodes[]
-                               | { author: (.author.login // "ghost"),
-                                   createdAt: .createdAt,
-                                   databaseId: .databaseId,
-                                   body: .body,
-                                   diffHunk: .diffHunk } ] } ]'
+  | jq -s --arg pfx "$HANDLING_PREFIX" --arg mk "$HANDLING_MARKER" '
+      def ours: (startswith($pfx)) or (contains($mk));
+      [ .[].data.repository.pullRequest.reviewThreads.nodes[]
+        | select(.isResolved == false)
+        | (.comments.nodes[0].body // "") as $first
+        | (.comments.nodes[-1].body // "") as $last
+        | { threadId:   .id,
+            anchorId:   (.comments.nodes[0].databaseId),
+            path:       .path,
+            line:       .line,
+            isOutdated: .isOutdated,
+            origin:     (if ($first | contains("<!-- moz-review:v1")) then "moz-review"
+                         elif ($first | startswith("SKILL:Reviewing-PR")) then "reviewing-pr"
+                         else "human" end),
+            severity:   (($first | capture("\\*\\*\\[review-pr: (?<s>blocking|nit|pre-existing)\\]\\*\\*") | .s) // null),
+            lastIsOurs: ($last | ours),
+            awaitingUs: (($last | ours) | not),
+            comments:   [ .comments.nodes[]
+                          | { author: (.author.login // "ghost"),
+                              createdAt: .createdAt,
+                              databaseId: .databaseId,
+                              body: .body,
+                              diffHunk: .diffHunk } ] } ]')"
+
+skipped="$(jq '[ .[] | select(.awaitingUs == false) ] | length' <<<"$all_threads")"
+if [[ $ALL -eq 1 ]]; then
+  printf '%s\n' "$all_threads"
+else
+  [[ "$skipped" != "0" ]] && echo "skipped $skipped unresolved thread(s) where this skill spoke last (pass --all to include them)" >&2
+  jq '[ .[] | select(.awaitingUs == true) ]' <<<"$all_threads"
+fi

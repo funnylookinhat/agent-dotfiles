@@ -1,0 +1,4 @@
+[{"id":1,"in_reply_to_id":null,"created_at":"2026-10-31T10:00:00Z","body":"<!-- moz-review:v1 -->\n**[review-pr: blocking]** Null deref."},
+ {"id":2,"in_reply_to_id":null,"created_at":"2026-10-31T10:00:00Z","body":"<!-- moz-review:v1 -->\n**[review-pr: nit]** Rename."},
+ {"id":3,"in_reply_to_id":null,"created_at":"2026-10-31T10:00:00Z","body":"<!-- moz-review:v1 -->\n**[review-pr: pre-existing]** Was already broken."},
+ {"id":4,"in_reply_to_id":1,"created_at":"2026-10-31T12:00:00Z","body":"SKILL:Handling-PR-Comments\n\nFixed in o/r@cccc."}]

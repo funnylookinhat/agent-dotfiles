@@ -1,0 +1,15 @@
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[
+ {"id":"T1","isResolved":false,"isOutdated":false,"path":"a.js","line":3,"comments":{"nodes":[
+   {"databaseId":1,"author":{"login":"funnylookinhat"},"body":"<!-- moz-review:v1 -->\n**[review-pr: blocking]** Null deref.","createdAt":"2026-10-31T10:00:00Z","diffHunk":"@@"}]}},
+ {"id":"T2","isResolved":false,"isOutdated":false,"path":"a.js","line":9,"comments":{"nodes":[
+   {"databaseId":2,"author":{"login":"funnylookinhat"},"body":"<!-- moz-review:v1 -->\n**[review-pr: pre-existing]** Already broken.","createdAt":"2026-10-31T10:00:00Z","diffHunk":"@@"},
+   {"databaseId":3,"author":{"login":"funnylookinhat"},"body":"SKILL:Handling-PR-Comments\n<!-- handling-pr-comments:v1 -->\n\nLeft as-is.","createdAt":"2026-10-31T11:00:00Z","diffHunk":"@@"}]}},
+ {"id":"T3","isResolved":false,"isOutdated":true,"path":"b.js","line":null,"comments":{"nodes":[
+   {"databaseId":4,"author":{"login":"funnylookinhat"},"body":"SKILL:Reviewing-PR\n\nOff by one.","createdAt":"2026-10-30T10:00:00Z","diffHunk":"@@"},
+   {"databaseId":5,"author":{"login":"funnylookinhat"},"body":"SKILL:Handling-PR-Comments\n\nFixed in o/r@abc.","createdAt":"2026-10-30T11:00:00Z","diffHunk":"@@"},
+   {"databaseId":6,"author":{"login":"teammate"},"body":"Still wrong, see line 12.","createdAt":"2026-10-30T12:00:00Z","diffHunk":"@@"}]}},
+ {"id":"T4","isResolved":false,"isOutdated":false,"path":"c.js","line":1,"comments":{"nodes":[
+   {"databaseId":7,"author":{"login":"teammate"},"body":"Can we rename this?","createdAt":"2026-10-30T12:00:00Z","diffHunk":"@@"}]}},
+ {"id":"T5","isResolved":true,"isOutdated":false,"path":"d.js","line":1,"comments":{"nodes":[
+   {"databaseId":8,"author":{"login":"funnylookinhat"},"body":"<!-- moz-review:v1 -->\n**[review-pr: nit]** resolved, must not appear","createdAt":"2026-10-30T12:00:00Z","diffHunk":"@@"}]}}
+]}}}}}

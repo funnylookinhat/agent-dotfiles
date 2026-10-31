@@ -114,22 +114,36 @@ below in full:
 $W = /home/funnylookinhat/.claude/skills/handle-ticket/scripts
 ```
 
+**Before phase 1 — resolve the reviewer.** Two review skills exist: `/moz-wide:review-pr` (the
+plugin skill, for repos in the seomoz org) and `/reviewing-pr` (the personal fallback). Decide once
+per run and write the answer to `notes.md`:
+
+```bash
+$W/resolve-review-skill.sh <owner/repo>
+```
+
+Its `.command` is `$REVIEW` in every phase below. Never hard-code either name: a worker prompted
+with a skill its session does not have asks what you meant, and the wait reports `BLOCKED`.
+
 1. **Implement** — agent `<t>-impl`. Prompt: the brief's full text, plus "follow this repo's
    CLAUDE.md for tests/lint/build, commit with conventional commits, push, and open a PR with
    `gh pr create`." Wait on: `$W/wait-for-pr.sh <branch> <t>-impl`.
 
-2. **Review** — agent `<t>-review`, prompt `/reviewing-pr <PR>`. Wait on:
+2. **Review** — agent `<t>-review`, prompt `$REVIEW <PR>` (e.g.
+   `/moz-wide:review-pr https://github.com/seomoz/<repo>/pull/<n>`). Wait on:
    `$W/wait-for-agent.sh <t>-review`.
 
 3. **Handle comments** — agent `<t>-comments`, prompt `/handling-pr-comments <PR>`. Wait on:
-   `$W/wait-for-agent.sh <t>-comments`. **Skip this phase entirely if phase 2 posted zero inline
-   findings** — go straight to phase 5. Spinning up a session to handle nothing costs minutes and a
-   pane.
+   `$W/wait-for-agent.sh <t>-comments`. **Skip this phase entirely if `review-status.sh` reports
+   `inline == 0`** — go straight to phase 5. Spinning up a session to handle nothing costs minutes
+   and a pane. Any inline finding counts, `[pre-existing]` ones included — the handling skill
+   decides per thread.
 
-4. **Re-review if phase 3 committed.** Check `gh pr view <PR> --json commits`. New commits mean the
-   phase-2 review covered a tree that no longer exists — run `/reviewing-pr <PR>` again (it goes
-   incremental on its own) as `<t>-review2`, and loop back to 3 if it posts anything. **Stop
-   looping** when `/reviewing-pr` reports `mode == "none"`, or when the only new commits are
+4. **Re-review if phase 3 committed.** Run `$W/review-status.sh <PR>`. `upToDate == false` means the
+   head moved past the sha the review covered — run `$REVIEW <PR>` again as `<t>-review2` (both
+   engines re-review incrementally on their own), then re-run `review-status.sh` and loop back to 3
+   if the new review has `inline > 0`. **Stop looping** when `upToDate == true` (replies alone never
+   move the head, so a phase 3 that only replied ends here), or when the only new commits are
    docs/comment clarifications that assert nothing new — say so rather than looping again.
 
 5. **Check CI.** `gh pr checks <PR>`. **Never report success on a red check.** Red → report it as
@@ -172,13 +186,13 @@ the artifact before moving on.
 The scripts emit one line and exit. Every outcome needs an action — **a wait that ends is not the
 same as a phase that succeeded**:
 
-| Line                       | Meaning                        | Do                                                                                                                                                                                                                                     |
-| -------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PR_OPEN <branch> #<n>`    | the PR exists                  | Verify commits, then advance.                                                                                                                                                                                                          |
-| `DONE` / `SETTLED <agent>` | the turn is over               | Verify the phase's artifact, then advance.                                                                                                                                                                                             |
-| `BLOCKED <agent>`          | the worker is waiting on input | `herdr agent read <agent> --source recent-unwrapped --lines 120`. Answer it with `herdr agent prompt` only if the brief already settles the question; otherwise escalate — do not invent requirements or approve on the user's behalf. |
-| `STALLED <agent>`          | idle ~15 min, no PR            | Read the pane. It is stuck or waiting silently. One nudge prompt is fair; a second `STALLED` means escalate.                                                                                                                           |
-| `GONE <agent>`             | not resolvable                 | The session or pane died. **Never treat this as success** — this skill never removes a worktree, so nothing should legitimately vanish. Report it.                                                                                     |
+| Line                       | Meaning                        | Do                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| -------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PR_OPEN <branch> #<n>`    | the PR exists                  | Verify commits, then advance.                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `DONE` / `SETTLED <agent>` | the turn is over               | Verify the phase's artifact, then advance.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `BLOCKED <agent>`          | the worker is waiting on input | `herdr agent read <agent> --source recent-unwrapped --lines 120`. Answer it with `herdr agent prompt` only if the brief already settles the question; otherwise escalate — do not invent requirements or approve on the user's behalf. `/moz-wide:review-pr` stops and asks when it cannot state the PR's purpose from the PR, branch, ticket, and linked docs — the brief's summary and acceptance criteria usually answer that, and the review records them as `invoker-supplied`. |
+| `STALLED <agent>`          | idle ~15 min, no PR            | Read the pane. It is stuck or waiting silently. One nudge prompt is fair; a second `STALLED` means escalate.                                                                                                                                                                                                                                                                                                                                                                         |
+| `GONE <agent>`             | not resolvable                 | The session or pane died. **Never treat this as success** — this skill never removes a worktree, so nothing should legitimately vanish. Report it.                                                                                                                                                                                                                                                                                                                                   |
 
 Escalating means: write what happened to `report.md`, fire the notification, and stop. Leave the
 worktree and the PR exactly as they are for the user to inspect.
@@ -189,13 +203,17 @@ Worker sessions have claimed commits that did not exist. Before each phase trans
 
 - Phase 1 → 2: `gh pr view <PR> --json commits,baseRefName` — commits are real, base is what you
   intended.
-- Phase 2 → 3: two different questions, two different endpoints — **did the review run?** (issue
-  comments carry the sha marker; one always posts, even with zero findings):
-  `gh api repos/<owner>/<repo>/issues/<PR>/comments --jq '[.[] | select(.body | contains("reviewing-pr:sha="))] | length'`
-  ≥ 1. **did it find anything?** (inline review comments — this is the count the phase-3 skip keys
-  on; zero here means skip):
-  `gh api repos/<owner>/<repo>/pulls/<PR>/comments --jq '[.[] | select(.body | startswith("SKILL:Reviewing-PR"))] | length'`.
-- Phase 3 → 4: `gh pr view <PR> --json commits` — did it commit, or only reply?
+- Phase 2 → 3: one call answers both questions, for either engine — `$W/review-status.sh <PR>`:
+  **did the review run?** `reviewed == true` and `reviewedSha == headSha`. Both engines post a
+  marker even with zero findings. A `/moz-wide:review-pr` run that _declined_ (draft by someone
+  else, repo outside seomoz) posts nothing — read the worker pane for its stated reason and escalate
+  it. "Cannot establish the why" is different: the worker _asks_ and shows up as `BLOCKED` (see the
+  wait table); if it instead ended with `reviewed == false` and that complaint in its pane,
+  re-prompt it once with the brief's summary and acceptance criteria, then escalate if it still
+  posts nothing. **did it find anything?** `inline` — the count the phase-3 skip keys on; zero means
+  skip. `blocking` / `nit` / `preExisting` break it down for the report.
+- Phase 3 → 4: `$W/review-status.sh <PR>` — `upToDate == false` means phase 3 committed; `true`
+  means it only replied (replies never move the head).
 
 ### Escalate, never fake
 
@@ -207,15 +225,17 @@ notification. **Never tick an attestation checkbox** — it claims testing nobod
 
 ## Non-obvious mechanics
 
-| Thing              | What you need to know                                                                                                                                                                 |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Freeing a pane     | There is no `herdr agent stop`. `herdr pane close <id>` is how a phase ends; split a new pane for the next one.                                                                       |
-| Pane reuse         | Don't. Unsubmitted "phantom" text survives at an idle prompt, cannot be cleared with `ctrl+u`/`esc`, and the next `agent prompt` concatenates onto it.                                |
-| Repeated splits    | Always split from the **root pane**, never from the previous worker pane — chaining rightward produces unusably narrow columns.                                                       |
-| Agent names        | `[a-z][a-z0-9_-]{0,31}`, unique among _live_ agents. Closing a pane frees the name; on `name already in use`, append a digit.                                                         |
-| Coordinator cwd    | The worktree, so `gh` resolves the repo and the wait scripts work with no `GH_REPO`.                                                                                                  |
-| Docker             | Each worktree gets its own compose project and containers — not shared with your main checkout. A killed test run can leave an orphaned mocha process in _that_ worktree's container. |
-| `/finish-worktree` | Acts on the worktree its own session is in and kills that pane. Out of scope here; this skill always leaves the worktree up.                                                          |
+| Thing                | What you need to know                                                                                                                                                                                                                                                                                       |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Freeing a pane       | There is no `herdr agent stop`. `herdr pane close <id>` is how a phase ends; split a new pane for the next one.                                                                                                                                                                                             |
+| Pane reuse           | Don't. Unsubmitted "phantom" text survives at an idle prompt, cannot be cleared with `ctrl+u`/`esc`, and the next `agent prompt` concatenates onto it.                                                                                                                                                      |
+| Repeated splits      | Always split from the **root pane**, never from the previous worker pane — chaining rightward produces unusably narrow columns.                                                                                                                                                                             |
+| Agent names          | `[a-z][a-z0-9_-]{0,31}`, unique among _live_ agents. Closing a pane frees the name; on `name already in use`, append a digit.                                                                                                                                                                               |
+| Coordinator cwd      | The worktree, so `gh` resolves the repo and the wait scripts work with no `GH_REPO`.                                                                                                                                                                                                                        |
+| Docker               | Each worktree gets its own compose project and containers — not shared with your main checkout. A killed test run can leave an orphaned mocha process in _that_ worktree's container.                                                                                                                       |
+| `/finish-worktree`   | Acts on the worktree its own session is in and kills that pane. Out of scope here; this skill always leaves the worktree up.                                                                                                                                                                                |
+| Two review engines   | `/moz-wide:review-pr` posts one PR _review_ (reviews endpoint) whose body carries `<!-- moz-review:v1 sha=… -->`; `/reviewing-pr` posts an issue comment carrying `<!-- reviewing-pr:sha=… -->` plus `SKILL:Reviewing-PR` inline comments. `review-status.sh` reads both — never grep for a marker by hand. |
+| moz-wide eligibility | Skips closed/merged PRs and drafts by other authors, declines repos outside seomoz, and a re-run at an already-reviewed head posts nothing and says so. `resolve-review-skill.sh` already routes non-seomoz repos to the fallback.                                                                          |
 
 ## Running unattended
 
@@ -227,6 +247,11 @@ skill needs:
 // ~/.claude/settings.json → permissions.allow
 "Bash(/home/funnylookinhat/.claude/skills/handle-ticket/scripts/*)",
 ```
+
+When the reviewer resolves to `/moz-wide:review-pr`, its worker also reaches for read-only Atlassian
+MCP tools (Jira issue, Confluence page) on both `mcp__atlassian__*` and
+`mcp__plugin_moz-wide_atlassian__*`; those are allowlisted too. An un-allowlisted MCP call in a
+worker pane is a silent stall, not a graceful "skipped".
 
 Run each `herdr`, `git`, and `gh` command as its own Bash call — a compound line (`cd … && …`,
 `a; b`) is matched as one blob and prompts no allowlist entry can cover.
@@ -242,6 +267,11 @@ Run each `herdr`, `git`, and `gh` command as its own Bash call — a compound li
   "clean context" is only clean because the previous pane is gone.
 - **Reporting done without `gh pr checks`.** A green-looking review says nothing about CI.
 - **Stopping after phase 3.** Handling comments changes the code the review was about; phase 4
-  exists for that and terminates on `mode == "none"`.
+  exists for that and terminates on `upToDate == true`.
+- **Hard-coding `/reviewing-pr` or `/moz-wide:review-pr` in a worker prompt.** Resolve it with
+  `resolve-review-skill.sh`; the fallback exists for repos outside seomoz and for machines without
+  the plugin.
+- **Counting findings with ad-hoc `gh api` greps.** The two engines post in different shapes;
+  `review-status.sh` is the one place that knows both.
 - **Writing the brief into the worktree.** It dirties the tree and later blocks teardown.
 - **Running `/finish-worktree`.** Out of scope — the run ends with the worktree up.

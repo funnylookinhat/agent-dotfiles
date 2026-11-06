@@ -48,6 +48,11 @@ Get the list of tickets before grilling on any of them. Confirm with the user:
 - The rough list, one line each
 - Whether any should be merged (not atomic) or split (more than one logical change)
 - Project key, and parent epic if there is one
+- The GitHub repository (`owner/repo`) each ticket lands in — resolve a candidate the way
+  `creating-jira-tickets` step 2 does (user named it; the description names code you can find under
+  `~/source/github.com/<owner>/<repo>/`; the current checkout's `origin`; else list candidates and
+  ask) and confirm it here. A ticket whose repository is unknown cannot be reconned in step 2, and a
+  ticket that needs two repositories is two tickets.
 
 Do not proceed until the list is agreed. Interrogating someone about a ticket that gets deleted two
 rounds later wastes the exact resource this skill is spending — their attention.
@@ -55,11 +60,15 @@ rounds later wastes the exact resource this skill is spending — their attentio
 ### 2. Recon before you ask
 
 For each ticket, find out what the codebase already answers. Dispatch a subagent per ticket (they
-are independent — fan them out in one message) to report:
+are independent — fan them out in one message), pointed at that ticket's repository by absolute path
+— `~/source/github.com/<owner>/<repo>` expanded in full — to report:
 
 - Files, modules, and endpoints the work touches
 - Existing patterns the work should follow
 - Anything that makes the stated intent look wrong or harder than it sounds
+
+The subagent's working directory is not the ticket's repository. A recon prompt without the path
+reads whatever checkout the session happens to be in and reports on the wrong codebase.
 
 **Never ask the user something the code can tell you.** Asking "what's the current timeout?" when
 you could have grepped it burns credibility and their patience.
@@ -95,8 +104,10 @@ A ticket with three honest open questions is more useful than one that reads com
 ### 5. Draft, confirm, create
 
 Use the templates in `~/.claude/skills/creating-jira-tickets/references/ticket-guide.md` and the
-drafting principles in that skill's step 3 — they are shared, not duplicated here. Add the
-`Open Questions` and `Assumptions` sections from step 4 above.
+drafting principles in that skill's step 4 — they are shared, not duplicated here. The guide's
+required `## Repository` section carries the repository confirmed in step 1; file paths in the
+ticket are relative to that repository's root. Add the `Open Questions` and `Assumptions` sections
+from step 4 above.
 
 Present the draft, ask for changes, then create with `mcp__atlassian__createJiraIssue` after
 approval. Report the key and link.
@@ -118,11 +129,13 @@ Stop early, regardless, if the user says to. "That's enough" ends the interrogat
 
 ## Red Flags
 
-| Thought                                       | Reality                                               |
-| --------------------------------------------- | ----------------------------------------------------- |
-| "I'll have a subagent interview them"         | Blocked. The subagent will fabricate the answers.     |
-| "This one's obvious, I'll skip the questions" | They asked to be grilled on _each_ ticket. Ask.       |
-| "I'll fill this gap with a sensible default"  | Fine — but write it in the Assumptions section.       |
-| "They seem annoyed, I'll just write it"       | Ask if they want to stop. Don't decide that silently. |
-| "I'll ask everything in one giant list"       | 3–6 per round. A 20-question wall gets skimmed.       |
-| "I'll ask what file this lives in"            | Go read the code. Only ask what code can't answer.    |
+| Thought                                       | Reality                                                                                       |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| "I'll have a subagent interview them"         | Blocked. The subagent will fabricate the answers.                                             |
+| "This one's obvious, I'll skip the questions" | They asked to be grilled on _each_ ticket. Ask.                                               |
+| "I'll fill this gap with a sensible default"  | Fine — but write it in the Assumptions section.                                               |
+| "They seem annoyed, I'll just write it"       | Ask if they want to stop. Don't decide that silently.                                         |
+| "I'll ask everything in one giant list"       | 3–6 per round. A 20-question wall gets skimmed.                                               |
+| "I'll ask what file this lives in"            | Go read the code. Only ask what code can't answer.                                            |
+| "I'll recon from the current directory"       | The ticket's repo may not be the one you are sitting in. Resolve it in step 1, pass the path. |
+| "The repo is probably X, I'll note that"      | A hedged repository is a question the implementer cannot answer. Confirm it with the user.    |

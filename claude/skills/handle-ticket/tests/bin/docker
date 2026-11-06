@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Test double for docker. Logs every call to $DOCKER_LOG. Fixture env:
+#   DOCKER_FIXTURE_IDS      newline-separated container ids `ps -aq` returns
+#   DOCKER_FIXTURE_PROJECT  compose project name `inspect` reports
+#   DOCKER_FIXTURE_CONFIG   comma-separated config_files `inspect` reports
+#   DOCKER_FIXTURE_NO_PLUGIN=1  make `docker compose` unavailable
+#   DOCKER_FIXTURE_DOWN_EXIT    exit code for `compose ... down` (default 0)
+set -euo pipefail
+printf '%s\n' "docker $*" >>"${DOCKER_LOG:-/dev/null}"
+case "${1:-}" in
+  ps)      printf '%s\n' "${DOCKER_FIXTURE_IDS:-}" | sed '/^$/d' ;;
+  inspect) id="${@: -1}"; printf '%s\t%s\t%s\n' "${DOCKER_FIXTURE_PROJECT:-proj}" "${DOCKER_FIXTURE_CONFIG:-}" "$id" ;;
+  compose)
+    [[ "${DOCKER_FIXTURE_NO_PLUGIN:-0}" == 1 ]] && { echo "docker: unknown command: docker compose" >&2; exit 1; }
+    [[ "${2:-}" == version ]] && exit 0
+    exit "${DOCKER_FIXTURE_DOWN_EXIT:-0}" ;;
+  stop|rm) exit 0 ;;
+  *) echo "fake docker: unsupported: $*" >&2; exit 1 ;;
+esac

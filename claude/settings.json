@@ -172,7 +172,8 @@
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true,
     "slack@claude-plugins-official": true,
-    "moz-wide@ai-foundations": true
+    "moz-wide@ai-foundations": true,
+    "datadog@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "ai-foundations": {

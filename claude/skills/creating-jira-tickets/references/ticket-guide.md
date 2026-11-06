@@ -14,6 +14,34 @@ type-specific template:
 Include this section only when the user provides that rationale. Skip it otherwise — do not invent
 content, and do not fold it into the template's own Context/Goal section below.
 
+## Required: Repository
+
+Every ticket names the GitHub repository the work lands in. Place this section directly below "What
+are we doing and why?" when that section exists, otherwise at the very top of the description —
+always above the type-specific template:
+
+```
+## Repository
+`<owner>/<repo>` — https://github.com/<owner>/<repo>
+
+All work for this ticket lands in this repository. File paths in this ticket are relative to its root.
+```
+
+Rules:
+
+- Use the `owner/repo` form plus the GitHub URL. Never a local filesystem path — the ticket is read
+  on other machines and by other people.
+- A Story, Task, or Bug names exactly one repository. Work that needs changes in two repositories is
+  two tickets.
+- An Epic lists one line per repository its child tickets touch, primary first, each with a few
+  words on what lands there.
+- A ticket that changes no code (a research spike, a document, a configuration change in a hosted
+  tool) still has the section, written as `None — this ticket does not change code`, so a reader
+  knows the repository was considered rather than forgotten.
+- No hedging. "Probably `owner/repo`" or "confirm before starting" turns the section into a question
+  the implementer cannot answer. Resolve it before drafting (see the skill's Resolve the Repository
+  step).
+
 ## Epic
 
 ```
@@ -152,9 +180,10 @@ Not every section is required for every ticket. Omit sections that would just sa
 viable ticket has:
 
 1. A clear imperative title
-2. Context (why)
-3. Requirements or reproduction steps (what)
-4. At least one acceptance criterion (done when)
+2. Repository (where)
+3. Context (why)
+4. Requirements or reproduction steps (what)
+5. At least one acceptance criterion (done when)
 
 Add Technical Notes when the work touches specific code paths, APIs, or data models. Add Out of
 Scope when there is genuine ambiguity about boundaries.

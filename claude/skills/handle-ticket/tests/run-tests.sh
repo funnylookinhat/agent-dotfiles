@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs review-status.sh against stubbed GitHub responses. Usage: tests/run-tests.sh
+# Runs the bundled scripts against stubs and fixtures. Usage: tests/run-tests.sh
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 S="$here/../scripts/review-status.sh"
@@ -23,4 +23,8 @@ check engine        '.engine == "moz-wide:review-pr"' "$out"
 check inline        '.inline == 2' "$out"
 check severities    '.blocking == 2 and .nit == 0' "$out"
 check handling      '.handlingRepliesSince == false' "$out"
+echo "resolve-ticket-repo.sh"
+bash "$here/test-resolve-ticket-repo.sh" || fail=1
+echo "stop-worktree-services.sh"
+bash "$here/test-stop-worktree-services.sh" || fail=1
 [[ $fail -eq 0 ]] && echo "all passed" || { echo "FAILURES"; exit 1; }

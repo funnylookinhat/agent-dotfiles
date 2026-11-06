@@ -2,8 +2,8 @@
 name: creating-jira-tickets
 description:
   Use when creating a Jira ticket to plan upcoming work. Prompts for project key, issue type,
-  optional parent epic, and capitalizability, then drafts and creates the ticket via the Atlassian
-  MCP tool.
+  repository, optional parent epic, and capitalizability, then drafts and creates the ticket via the
+  Atlassian MCP tool.
 ---
 
 # Creating Jira Tickets
@@ -25,13 +25,42 @@ Before drafting, collect the information needed:
 - Always ask the user to confirm or provide:
   - **Project key** (e.g. `ENG`, `PLAT`)
   - **Issue type** (Epic, Story, Task, or Bug)
+  - **Repository** — the GitHub `owner/repo` the work lands in. Resolve a candidate first (step 2)
+    and present it for confirmation; do not ask cold.
   - **Parent epic** (optional — ticket key or title; skip if not applicable)
   - **Capitalizable** — whether this work is capitalizable for accounting purposes (yes/no)
   - **What are we doing and why?** (optional — why this work matters, what it means for the
     business, and how it helps users; skip if not provided)
 - Review relevant code, designs, or prior tickets if referenced
 
-### 2. Determine Issue Type
+### 2. Resolve the Repository
+
+Every ticket names the GitHub repository the work lands in, as `owner/repo`. An agent that picks the
+ticket up later starts from that name — not from whatever directory it happens to be launched in —
+so a ticket without it leaves the agent guessing which codebase to open.
+
+Find the candidate, in this order, and stop at the first that answers:
+
+1. The user named a repository.
+2. The description names code — a service, file, endpoint, or module. Find which local checkout
+   contains it: checkouts live at `~/source/github.com/<owner>/<repo>/`, so
+   `ls ~/source/github.com/*/` for a service name, or `grep -rl` a file or symbol across the
+   candidates. Exclude `node_modules`, `.git`, and env/config files (`config/env`, `*.env`) from
+   that grep — they hold live credentials, and a match there is noise.
+3. The current working directory is inside a git checkout: `git remote get-url origin` names it.
+   Treat this as a default to confirm, not an answer — the user may be filing a ticket for a
+   different service from the one they are sitting in.
+4. None of the above: list the plausible repositories from `ls ~/source/github.com/*/` and ask the
+   user to pick.
+
+Then verify the candidate exists with `gh repo view <owner/repo> --json name` and confirm it with
+the user alongside the other step-1 answers. A repository that is still uncertain when you reach the
+draft is a question for the user now, not a hedge in the ticket.
+
+Work that needs changes in two repositories is two tickets (see Atomic scope below). An Epic lists
+every repository its child tickets touch.
+
+### 3. Determine Issue Type
 
 Select the appropriate type based on the work described:
 
@@ -42,7 +71,7 @@ Select the appropriate type based on the work described:
 | Task  | Technical work, infrastructure, or internal improvements |
 | Bug   | Something is broken and needs fixing                     |
 
-### 3. Draft the Ticket
+### 4. Draft the Ticket
 
 Write the ticket using the description template from `references/ticket-guide.md`. Load the
 reference file to get the appropriate template for the issue type.
@@ -51,6 +80,10 @@ If the user provided a "What are we doing and why?" answer in step 1, add it as 
 titled `## What are we doing and why?` at the very top of the description, above the type-specific
 template. It is separate from the template's own Context/Goal section — do not merge the two. If the
 user did not provide it, omit the section entirely; do not invent one.
+
+Always add the `## Repository` section from the guide, directly below "What are we doing and why?"
+(or at the very top when that section is absent), using the repository confirmed in step 2. It is
+required for every issue type; the guide covers the Epic and no-code-change forms.
 
 **Key principles to follow while drafting:**
 
@@ -65,17 +98,19 @@ user did not provide it, omit the section entirely; do not invent one.
 - **Explicit scope** — State what is out of scope when there is ambiguity. Humans infer scope from
   organizational context; future readers and AI agents do not.
 - **Technical context inline** — Mention affected files, modules, endpoints, and patterns directly
-  in the description. This helps both developers and AI agents orient quickly.
-- **Atomic scope** — One logical change per ticket. If the work has independent parts, suggest
-  separate tickets.
+  in the description, as paths relative to the ticket's repository root. This helps both developers
+  and AI agents orient quickly.
+- **Atomic scope** — One logical change per ticket, in one repository. If the work has independent
+  parts, or needs changes in more than one repository, suggest separate tickets.
 
-### 4. Present for Review
+### 5. Present for Review
 
 Show the drafted ticket to the user in a clear format:
 
 ```
 **Project:** PROJ
 **Type:** Epic/Story/Task/Bug
+**Repository:** owner/repo
 **Summary:** <title>
 
 **Description:**
@@ -84,7 +119,7 @@ Show the drafted ticket to the user in a clear format:
 
 Ask if any changes are needed before creating.
 
-### 5. Create in Jira
+### 6. Create in Jira
 
 After the user approves the draft, create the ticket using `mcp__atlassian__createJiraIssue`. Report
 back with the ticket key and link.

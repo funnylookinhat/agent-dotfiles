@@ -13,7 +13,26 @@ coordinator: you dispatch sessions, wait out-of-context, verify claims, carry fi
 report. **You never write the code yourself.**
 
 Each ticket's branch is based on the previous ticket's branch (a stack) unless the user says they
-are independent.
+are independent. A stack never crosses repositories: a ticket in a different repository from the
+previous one starts from that repository's default branch.
+
+## Before the first ticket — resolve each repository
+
+You can be launched from any directory. The repository for each ticket comes from the ticket's
+`## Repository` section, mapped to a checkout under `~/source/github.com/<owner>/<repo>`. Fetch
+every ticket (`mcp__atlassian__getJiraIssue`), write each description verbatim to
+`~/.claude/ticket-runs/<TICKET>/brief.md`, and resolve each one:
+
+```bash
+/home/funnylookinhat/.claude/skills/handle-ticket/scripts/resolve-ticket-repo.sh ~/.claude/ticket-runs/<TICKET>/brief.md --cwd "$PWD"
+```
+
+`.path` is that ticket's `<repo path>` everywhere below; `.repo` is its `OWNER/REPO`. Record both
+per ticket in your notes before starting. Any ticket that does not come back `OK` stops the run
+before it starts — `NOT_FOUND` (no section, not in a checkout) and `NOT_CLONED` (named but not
+checked out; `.reason` has the clone command) are questions for the user, and `NONE` (no code
+change) does not belong in this lifecycle. A ticket that resolved from `--cwd` rather than the
+ticket (`.source == "cwd"`) is a default you state in the report, not a fact.
 
 ## Before the first ticket — resolve the reviewer
 
@@ -33,8 +52,12 @@ Call both by absolute path.
 
 Never start ticket N+1 until step 6 of ticket N is done.
 
-1. **Implement.** `start-worktree` skill, or directly:
-   `herdr worktree create --cwd <main repo> --branch <branch> --base <prev branch> --no-focus` →
+1. **Implement.** Directly:
+   `herdr worktree create --cwd <repo path> --branch flh/<TICKET>-<slug> [--base <prev branch>] --no-focus`
+   (`<repo path>` is this ticket's resolved checkout, never `$PWD`. Pass `--base` only when the
+   previous ticket is in the same repository; omit it for the first ticket and on a repository
+   change, and Herdr bases on the default branch. The `start-worktree` skill assumes `$PWD` is the
+   repo, so it only fits when you were launched from inside this ticket's checkout.) →
    `herdr agent start <slug> --kind claude --pane <root-pane-id>` → `herdr agent prompt`. Wait:
    `wait-for-pr.sh <branch> <agent>`.
 2. **Review, clean context.** Split a pane in that workspace, start a _fresh_ claude, prompt
@@ -48,12 +71,21 @@ Never start ticket N+1 until step 6 of ticket N is done.
    `upToDate == true`, or when the only new commits are docs/comment clarifications asserting
    nothing new, and say so rather than looping.
 5. **Verify CI.** `gh pr checks <PR>`. Never report success on a red check.
-6. **Finish the worktree.** Split one last pane, fresh claude, `/finish-worktree`.
+6. **Free the machine, then finish the worktree.** First
+   `/home/funnylookinhat/.claude/skills/handle-ticket/scripts/stop-worktree-services.sh <worktree path>`
+   (the path `herdr worktree create` returned). `/finish-worktree` only sweeps compose containers; a
+   dev server or watcher started from the worktree survives its removal with a deleted cwd. Put the
+   script's `compose` and `processes` in your notes. Then split one last pane, fresh claude,
+   `/finish-worktree`.
 
 ## Waiting: never poll in your own context
 
 Arm every wait with the **`Monitor` tool, `persistent: true`** — not Bash `run_in_background`
-(killed mid-wait in practice). Call this skill's wait scripts by absolute path
+(killed mid-wait in practice). Your own cwd is wherever you were launched, not the repo, so
+`wait-for-pr.sh` cannot let `gh` infer the repository: prefix it with that ticket's
+`GH_REPO=<OWNER/REPO>` (the resolver's `.repo`), or `gh pr list` fails silently and every wait ends
+`STALLED`. The same applies to any `gh pr view` / `gh pr checks` you run yourself. Call this skill's
+wait scripts by absolute path
 (`/home/funnylookinhat/.claude/skills/handle-multiple-tickets/wait-for-*.sh` — they sit at the skill
 root, not under `scripts/`); the allow rule
 `Bash(/home/funnylookinhat/.claude/skills/handle-multiple-tickets/*)` covers them, and a relative
@@ -72,19 +104,20 @@ gate progress.
 
 **After step 6, `GONE` is the success signal**, not a failure: `/finish-worktree` removes the
 workspace, which kills the session you were waiting on. Confirm the real outcome with
-`herdr worktree list --cwd <main repo>` (path absent) and `gh pr view <n>` (PR still open, branch
+`herdr worktree list --cwd <repo path>` (path absent) and `gh pr view <n>` (PR still open, branch
 survived).
 
 ## Non-obvious mechanics
 
-| Thing                 | What you need to know                                                                                                                                                                                                                                                                                                          |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/finish-worktree`    | Acts on the worktree **its own session** is in; its last step kills that pane. Coordinator cannot invoke it. **Hard-stops on a dirty tree** — check `git status --porcelain` first.                                                                                                                                            |
-| Pane reuse            | Don't. Unsubmitted "phantom" text appears at idle prompts and cannot be cleared with `ctrl+u`/`esc`; a new `agent prompt` concatenates onto it. Close the pane, split a new one.                                                                                                                                               |
-| Late fixes            | Once finished, the worktree is gone (branch survives, so `--base` still resolves). Land late fixes **before** step 6, or `herdr worktree open` again.                                                                                                                                                                          |
-| Fix on a lower branch | Merge that base upward into every branch above it immediately — a **merge**, never a rebase, since they are pushed with open PRs.                                                                                                                                                                                              |
-| Review engines        | `/moz-wide:review-pr` posts one PR _review_ with `<!-- moz-review:v1 sha=… -->`; `/reviewing-pr` posts an issue comment with `<!-- reviewing-pr:sha=… -->`. `review-status.sh` reads both. The plugin declines repos outside seomoz and drafts by other authors; the resolver already routes non-seomoz repos to the fallback. |
-| Test flakiness        | Each worktree has its **own** compose project and DB container — they are not shared. A killed test run leaves an orphaned mocha process inside _that_ worktree's container: `docker exec <app> ps aux \| grep mocha`.                                                                                                         |
+| Thing                 | What you need to know                                                                                                                                                                                                                                                                                                                                           |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Which repository      | Per ticket, from its `## Repository` section via `resolve-ticket-repo.sh`. The checkout is found by origin remote when its directory name differs from the repo name. `$PWD` is a fallback only when the ticket is silent.                                                                                                                                      |
+| `/finish-worktree`    | Acts on the worktree **its own session** is in; its last step kills that pane. Coordinator cannot invoke it. **Hard-stops on a dirty tree** — check `git status --porcelain` first.                                                                                                                                                                             |
+| Pane reuse            | Don't. Unsubmitted "phantom" text appears at idle prompts and cannot be cleared with `ctrl+u`/`esc`; a new `agent prompt` concatenates onto it. Close the pane, split a new one.                                                                                                                                                                                |
+| Late fixes            | Once finished, the worktree is gone (branch survives, so `--base` still resolves). Land late fixes **before** step 6, or `herdr worktree open` again.                                                                                                                                                                                                           |
+| Fix on a lower branch | Merge that base upward into every branch above it immediately — a **merge**, never a rebase, since they are pushed with open PRs.                                                                                                                                                                                                                               |
+| Review engines        | `/moz-wide:review-pr` posts one PR _review_ with `<!-- moz-review:v1 sha=… -->`; `/reviewing-pr` posts an issue comment with `<!-- reviewing-pr:sha=… -->`. `review-status.sh` reads both. The plugin declines repos outside seomoz and drafts by other authors; the resolver already routes non-seomoz repos to the fallback.                                  |
+| Test flakiness        | Each worktree has its **own** compose project and DB container — they are not shared. A killed test run leaves an orphaned mocha process inside _that_ worktree's container: `docker exec <app> ps aux \| grep mocha`. Step 6's `stop-worktree-services.sh` is what reclaims that memory — a ticket that ends without it keeps its app/DB/cache stack resident. |
 
 ## Carry findings forward
 

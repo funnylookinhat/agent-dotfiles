@@ -41,7 +41,10 @@ Your whole job is to build the brief and hand off. **You do not drive the lifecy
 wait for it.** When step 7 returns, you are finished.
 
 1. **Find the ticket ID** in the arguments — `[A-Z][A-Z0-9]+-[0-9]+`. No match → ask for one and
-   stop. Keep any other text on the invocation line; it becomes _Extra instructions_ in the brief.
+   stop. Keep any other text on the invocation line; it becomes _Extra instructions_ in the brief. A
+   `base=<ref>` token, or an explicit instruction such as "branch off `release/2.x`", is a **base
+   override** — note it for step 4. Nothing else is: the branch currently checked out, and branches
+   the ticket merely mentions as context, are not instructions.
 
 2. **Fetch the ticket.** `mcp__atlassian__getAccessibleAtlassianResources` for the `cloudId`, then
    `mcp__atlassian__getJiraIssue`.
@@ -71,11 +74,31 @@ wait for it.** When step 7 returns, you are finished.
    | `NOT_CLONED`                | The ticket names a repo with no checkout here. Report the clone command from `.reason` and stop — cloning is the user's call.                                                                                         |
    | `NONE`                      | The ticket says it changes no code. There is nothing to implement in a worktree; report that and stop.                                                                                                                |
 
-5. **Create the worktree.** Branch `flh/<TICKET>-<kebab-summary>` (base = default branch unless the
-   user named one):
+   **Then resolve the base.** The new branch starts from the repository's **default branch, freshly
+   fetched from origin** — never from whatever the checkout happens to have checked out. Pass
+   `--base <ref>` only when step 1 found a base override; the ticket's own `## Base branch` section,
+   if it has one, counts as an override too.
 
    ```bash
-   herdr worktree create --cwd "$REPO_PATH" --branch flh/<TICKET>-<slug> --no-focus
+   /home/funnylookinhat/.claude/skills/handle-ticket/scripts/resolve-base-branch.sh --cwd "$REPO_PATH" [--base <ref>]
+   ```
+
+   It fetches the branch from origin, fast-forwards the local branch when that is safe, and prints
+   JSON. `$BASE` below is `.base` **verbatim** (a branch name, or a commit when the local branch
+   could not be brought in sync), and `.branch` is the base's name for the PR.
+
+   | `.status`                  | Do                                                                                                                                                        |
+   | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `OK`                       | Proceed. Mention in the report when `.localFastForwarded` is true or `.localInSync` is false (the local branch was dirty or diverged and was left alone). |
+   | `FETCH_FAILED`             | Origin is unreachable. Do not fall back to the local branch — report `.reason` and stop; a stale base silently produces a PR with the wrong diff.         |
+   | `NOT_FOUND`                | The override names a branch that exists nowhere. Report it and stop.                                                                                      |
+   | `NO_DEFAULT` / `NO_ORIGIN` | Report `.reason` and stop.                                                                                                                                |
+
+5. **Create the worktree.** Branch `flh/<TICKET>-<kebab-summary>`, **always** with `--base` —
+   without it Herdr starts the branch from the checkout's current `HEAD`:
+
+   ```bash
+   herdr worktree create --cwd "$REPO_PATH" --branch flh/<TICKET>-<slug> --base "$BASE" --no-focus
    ```
 
    Capture `.result.root_pane.pane_id`, `.result.workspace.workspace_id`, and
@@ -92,15 +115,16 @@ wait for it.** When step 7 returns, you are finished.
 7. **Hand off, fire-and-forget** — no `--wait`:
 
    ```bash
-   herdr agent prompt <t>-coord '/handle-ticket --coordinate <TICKET> brief=<abs-brief-path> repo=<OWNER/REPO> branch=flh/<TICKET>-<slug> worktree=<path> pane=<root-pane-id> workspace=<workspace-id>'
+   herdr agent prompt <t>-coord '/handle-ticket --coordinate <TICKET> brief=<abs-brief-path> repo=<OWNER/REPO> branch=flh/<TICKET>-<slug> base=<.branch from step 4> worktree=<path> pane=<root-pane-id> workspace=<workspace-id>'
    ```
 
    Expand `~` yourself — every path in that prompt must be **absolute**. It arrives as text in
    another agent's prompt box, where no shell expands it and a `~` path is not readable.
 
-8. **Report** repository (and whether it came from the ticket or from `$PWD`), branch, worktree
-   path, workspace ID, coordinator agent name, and that results will arrive as a Herdr notification
-   plus `~/.claude/ticket-runs/<TICKET>/report.md`. Then stop.
+8. **Report** repository (and whether it came from the ticket or from `$PWD`), branch, base (and
+   whether it was the default or an override, and whether the local branch was fast-forwarded or
+   left alone), worktree path, workspace ID, coordinator agent name, and that results will arrive as
+   a Herdr notification plus `~/.claude/ticket-runs/<TICKET>/report.md`. Then stop.
 
 ---
 
@@ -151,7 +175,9 @@ with a skill its session does not have asks what you meant, and the wait reports
 
 1. **Implement** — agent `<t>-impl`. Prompt: the brief's full text, plus "follow this repo's
    CLAUDE.md for tests/lint/build, commit with conventional commits, push, and open a PR with
-   `gh pr create`." Wait on: `$W/wait-for-pr.sh <branch> <t>-impl`.
+   `gh pr create --base <base>`" — `<base>` is the `base=` you were handed, so a run based on a
+   release branch does not open its PR against the default branch. Wait on:
+   `$W/wait-for-pr.sh <branch> <t>-impl`.
 
 2. **Review** — agent `<t>-review`, prompt `$REVIEW <PR>` (e.g.
    `/moz-wide:review-pr https://github.com/seomoz/<repo>/pull/<n>`). Wait on:
@@ -240,8 +266,8 @@ the user to inspect.
 
 Worker sessions have claimed commits that did not exist. Before each phase transition:
 
-- Phase 1 → 2: `gh pr view <PR> --json commits,baseRefName` — commits are real, base is what you
-  intended.
+- Phase 1 → 2: `gh pr view <PR> --json commits,baseRefName` — commits are real, and `baseRefName`
+  equals the `base=` you were handed.
 - Phase 2 → 3: one call answers both questions, for either engine — `$W/review-status.sh <PR>`:
   **did the review run?** `reviewed == true` and `reviewedSha == headSha`. Both engines post a
   marker even with zero findings. A `/moz-wide:review-pr` run that _declined_ (draft by someone
@@ -264,18 +290,19 @@ notification. **Never tick an attestation checkbox** — it claims testing nobod
 
 ## Non-obvious mechanics
 
-| Thing                | What you need to know                                                                                                                                                                                                                                                                                                                                                 |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Freeing a pane       | There is no `herdr agent stop`. `herdr pane close <id>` is how a phase ends; split a new pane for the next one.                                                                                                                                                                                                                                                       |
-| Pane reuse           | Don't. Unsubmitted "phantom" text survives at an idle prompt, cannot be cleared with `ctrl+u`/`esc`, and the next `agent prompt` concatenates onto it.                                                                                                                                                                                                                |
-| Repeated splits      | Always split from the **root pane**, never from the previous worker pane — chaining rightward produces unusably narrow columns.                                                                                                                                                                                                                                       |
-| Agent names          | `[a-z][a-z0-9_-]{0,31}`, unique among _live_ agents. Closing a pane frees the name; on `name already in use`, append a digit.                                                                                                                                                                                                                                         |
-| Coordinator cwd      | The worktree, so `gh` resolves the repo and the wait scripts work with no `GH_REPO`.                                                                                                                                                                                                                                                                                  |
-| Which repository     | The ticket's `## Repository` section, via `resolve-ticket-repo.sh`, mapped to `~/source/github.com/<owner>/<repo>` (found by origin remote when the directory name differs). The launcher's `$PWD` is a fallback only, and only when the ticket is silent.                                                                                                            |
-| Docker               | Each worktree gets its own compose project and containers — not shared with your main checkout. A killed test run can leave an orphaned mocha process in _that_ worktree's container. Nothing stops them when the run ends except step 6's `stop-worktree-services.sh`; a finished run that skips it holds a full app/DB/cache stack in memory until someone notices. |
-| `/finish-worktree`   | Acts on the worktree its own session is in and kills that pane. Out of scope here; this skill always leaves the worktree up.                                                                                                                                                                                                                                          |
-| Two review engines   | `/moz-wide:review-pr` posts one PR _review_ (reviews endpoint) whose body carries `<!-- moz-review:v1 sha=… -->`; `/reviewing-pr` posts an issue comment carrying `<!-- reviewing-pr:sha=… -->` plus `SKILL:Reviewing-PR` inline comments. `review-status.sh` reads both — never grep for a marker by hand.                                                           |
-| moz-wide eligibility | Skips closed/merged PRs and drafts by other authors, declines repos outside seomoz, and a re-run at an already-reviewed head posts nothing and says so. `resolve-review-skill.sh` already routes non-seomoz repos to the fallback.                                                                                                                                    |
+| Thing                | What you need to know                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Freeing a pane       | There is no `herdr agent stop`. `herdr pane close <id>` is how a phase ends; split a new pane for the next one.                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Pane reuse           | Don't. Unsubmitted "phantom" text survives at an idle prompt, cannot be cleared with `ctrl+u`/`esc`, and the next `agent prompt` concatenates onto it.                                                                                                                                                                                                                                                                                                                                                                          |
+| Repeated splits      | Always split from the **root pane**, never from the previous worker pane — chaining rightward produces unusably narrow columns.                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Agent names          | `[a-z][a-z0-9_-]{0,31}`, unique among _live_ agents. Closing a pane frees the name; on `name already in use`, append a digit.                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Coordinator cwd      | The worktree, so `gh` resolves the repo and the wait scripts work with no `GH_REPO`.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Which repository     | The ticket's `## Repository` section, via `resolve-ticket-repo.sh`, mapped to `~/source/github.com/<owner>/<repo>` (found by origin remote when the directory name differs). The launcher's `$PWD` is a fallback only, and only when the ticket is silent.                                                                                                                                                                                                                                                                      |
+| Which base           | `herdr worktree create` without `--base` starts the branch from the checkout's current `HEAD` — a feature branch someone left checked out, or a `main` nobody has pulled in a week. `resolve-base-branch.sh` fetches the default branch (or the override) from origin and returns the value to pass; `.base` is a commit rather than a name when the local branch was dirty or diverged, and never `origin/<branch>`, which would give the new branch an upstream whose name differs from its own and break a plain `git push`. |
+| Docker               | Each worktree gets its own compose project and containers — not shared with your main checkout. A killed test run can leave an orphaned mocha process in _that_ worktree's container. Nothing stops them when the run ends except step 6's `stop-worktree-services.sh`; a finished run that skips it holds a full app/DB/cache stack in memory until someone notices.                                                                                                                                                           |
+| `/finish-worktree`   | Acts on the worktree its own session is in and kills that pane. Out of scope here; this skill always leaves the worktree up.                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Two review engines   | `/moz-wide:review-pr` posts one PR _review_ (reviews endpoint) whose body carries `<!-- moz-review:v1 sha=… -->`; `/reviewing-pr` posts an issue comment carrying `<!-- reviewing-pr:sha=… -->` plus `SKILL:Reviewing-PR` inline comments. `review-status.sh` reads both — never grep for a marker by hand.                                                                                                                                                                                                                     |
+| moz-wide eligibility | Skips closed/merged PRs and drafts by other authors, declines repos outside seomoz, and a re-run at an already-reviewed head posts nothing and says so. `resolve-review-skill.sh` already routes non-seomoz repos to the fallback.                                                                                                                                                                                                                                                                                              |
 
 ## Running unattended
 
@@ -318,6 +345,15 @@ Run each `herdr`, `git`, and `gh` command as its own Bash call — a compound li
 - **Writing the brief into the worktree.** It dirties the tree and later blocks teardown.
 - **Creating the worktree from `$PWD`.** The ticket says where the work lands; the directory you
   were launched from is whatever the user had open. Resolve the repository first.
+- **`herdr worktree create` without `--base`.** The branch inherits whatever is checked out in the
+  main checkout. Run `resolve-base-branch.sh` and pass its `.base` every time, even when you believe
+  the checkout is on an up-to-date `main`.
+- **Treating a stale or unreachable origin as "good enough".** `FETCH_FAILED` stops the run. Basing
+  on a week-old local `main` produces a PR whose diff includes other people's reverted work, and
+  nobody notices until review.
+- **Reading a base out of the ticket's prose.** "This depends on the `release/2.x` work" is context,
+  not an instruction. Only a `base=` token on the invocation line, an explicit instruction to branch
+  off something, or a `## Base branch` section overrides the default.
 - **Guessing the repository from the ticket's prose when the section is missing.** A service name in
   the description is not a repository. `NOT_FOUND` means ask.
 - **Running `/finish-worktree`.** Out of scope — the run ends with the worktree up.

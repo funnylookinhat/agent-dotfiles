@@ -25,6 +25,8 @@ check severities    '.blocking == 2 and .nit == 0' "$out"
 check handling      '.handlingRepliesSince == false' "$out"
 echo "resolve-ticket-repo.sh"
 bash "$here/test-resolve-ticket-repo.sh" || fail=1
+echo "resolve-base-branch.sh"
+bash "$here/test-resolve-base-branch.sh" || fail=1
 echo "stop-worktree-services.sh"
 bash "$here/test-stop-worktree-services.sh" || fail=1
 [[ $fail -eq 0 ]] && echo "all passed" || { echo "FAILURES"; exit 1; }

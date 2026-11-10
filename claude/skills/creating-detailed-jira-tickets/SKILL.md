@@ -48,6 +48,7 @@ Get the list of tickets before grilling on any of them. Confirm with the user:
 - The rough list, one line each
 - Whether any should be merged (not atomic) or split (more than one logical change)
 - Project key, and parent epic if there is one
+- Whether each ticket is capitalizable (yes/no) — the answer sets its "Account" field in step 5
 - The GitHub repository (`owner/repo`) each ticket lands in — resolve a candidate the way
   `creating-jira-tickets` step 2 does (user named it; the description names code you can find under
   `~/source/github.com/<owner>/<repo>/`; the current checkout's `origin`; else list candidates and
@@ -109,8 +110,15 @@ required `## Repository` section carries the repository confirmed in step 1; fil
 ticket are relative to that repository's root. Add the `Open Questions` and `Assumptions` sections
 from step 4 above.
 
+Resolve the Account field the way `creating-jira-tickets` step 5 does: look up the field named
+"Account" for the project and issue type with `mcp__atlassian__getJiraIssueTypeMetaWithFields`, pick
+the allowed value that matches the capitalizable answer from step 1 (ask the user to pick when the
+match is not plain; `n/a` when the issue type has no such field), and show it as an `**Account:**`
+line in the draft.
+
 Present the draft, ask for changes, then create with `mcp__atlassian__createJiraIssue` after
-approval. Report the key and link.
+approval, passing the Account value through `additional_fields` under the field's id from the
+metadata. Report the key and link.
 
 Then move to the next ticket. Carry forward what you learned — do not re-ask questions the previous
 ticket already settled.

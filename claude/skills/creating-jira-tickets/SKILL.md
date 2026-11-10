@@ -28,7 +28,8 @@ Before drafting, collect the information needed:
   - **Repository** — the GitHub `owner/repo` the work lands in. Resolve a candidate first (step 2)
     and present it for confirmation; do not ask cold.
   - **Parent epic** (optional — ticket key or title; skip if not applicable)
-  - **Capitalizable** — whether this work is capitalizable for accounting purposes (yes/no)
+  - **Capitalizable** — whether this work is capitalizable for accounting purposes (yes/no). The
+    answer sets the ticket's "Account" field (step 5).
   - **What are we doing and why?** (optional — why this work matters, what it means for the
     business, and how it helps users; skip if not provided)
 - Review relevant code, designs, or prior tickets if referenced
@@ -105,12 +106,23 @@ required for every issue type; the guide covers the Epic and no-code-change form
 
 ### 5. Present for Review
 
+Resolve the Account field first. The capitalizable answer is recorded in a Jira field labeled
+"Account", which is required on many issue types. Call
+`mcp__atlassian__getJiraIssueTypeMetaWithFields` for the project and issue type, find the field
+named "Account", and read its allowed values:
+
+- The field exists and one allowed value plainly matches the answer (a capitalizable /
+  non-capitalizable pair): use it.
+- The field exists and the match is not plain: list the allowed values and ask the user to pick.
+- The field does not exist on this issue type: the review block shows `n/a` and nothing is set.
+
 Show the drafted ticket to the user in a clear format:
 
 ```
 **Project:** PROJ
 **Type:** Epic/Story/Task/Bug
 **Repository:** owner/repo
+**Account:** <allowed value> (capitalizable: yes | no)
 **Summary:** <title>
 
 **Description:**
@@ -121,8 +133,9 @@ Ask if any changes are needed before creating.
 
 ### 6. Create in Jira
 
-After the user approves the draft, create the ticket using `mcp__atlassian__createJiraIssue`. Report
-back with the ticket key and link.
+After the user approves the draft, create the ticket using `mcp__atlassian__createJiraIssue`,
+passing the Account value from step 5 through `additional_fields` under the field's id from the
+metadata. Report back with the ticket key and link.
 
 ## Resources
 
